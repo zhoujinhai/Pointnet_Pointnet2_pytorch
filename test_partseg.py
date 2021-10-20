@@ -12,6 +12,7 @@ import importlib
 from tqdm import tqdm
 import numpy as np
 
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = BASE_DIR
 sys.path.append(os.path.join(ROOT_DIR, 'models'))
@@ -29,7 +30,7 @@ for cat in seg_classes.keys():
 
 def to_categorical(y, num_classes):
     """ 1-hot encodes a tensor """
-    new_y = torch.eye(num_classes)[y.cpu().data.numpy(),]
+    new_y = torch.eye(num_classes)[y.cpu().data.numpy(), ]
     if (y.is_cuda):
         return new_y.cuda()
     return new_y
@@ -38,12 +39,12 @@ def to_categorical(y, num_classes):
 def parse_args():
     '''PARAMETERS'''
     parser = argparse.ArgumentParser('PointNet')
-    parser.add_argument('--batch_size', type=int, default=24, help='batch size in testing')
+    parser.add_argument('--batch_size', type=int, default=1, help='batch size in testing')
     parser.add_argument('--gpu', type=str, default='0', help='specify gpu device')
-    parser.add_argument('--num_point', type=int, default=2048, help='point Number')
+    parser.add_argument('--num_point', type=int, default=2704, help='point Number')
     parser.add_argument('--log_dir', type=str, required=True, help='experiment root')
     parser.add_argument('--normal', action='store_true', default=False, help='use normals')
-    parser.add_argument('--num_votes', type=int, default=3, help='aggregate segmentation scores with voting')
+    parser.add_argument('--num_votes', type=int, default=1, help='aggregate segmentation scores with voting')
     return parser.parse_args()
 
 
@@ -68,7 +69,7 @@ def main(args):
     log_string('PARAMETER ...')
     log_string(args)
 
-    root = 'data/shapenetcore_partanno_segmentation_benchmark_v0_normal/'
+    root = '/home/heygears/jinhai_zhou/data/shapenetcore_partanno_segmentation_benchmark_v0_normal/'
 
     TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='test', normal_channel=args.normal)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=4)
@@ -97,14 +98,13 @@ def main(args):
                 seg_label_to_cat[label] = cat
 
         classifier = classifier.eval()
-        for batch_id, (points, label, target) in tqdm(enumerate(testDataLoader), total=len(testDataLoader),
-                                                      smoothing=0.9):
-            batchsize, num_point, _ = points.size()
-            cur_batch_size, NUM_POINT, _ = points.size()
+        # for batch_id, (points, label, target) in tqdm(enumerate(testDataLoader), total=len(testDataLoader), smoothing=0.9):
+        for batch_id, (points, label, target) in enumerate(testDataLoader):
+            # batchsize, num_point, _ = points.size()
+            cur_batch_size, NUM_POINT, _ = points.size()   # B, N, C
             points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
-            points = points.transpose(2, 1)
+            points = points.transpose(2, 1)                # B, C, N
             vote_pool = torch.zeros(target.size()[0], target.size()[1], num_part).cuda()
-
             for _ in range(args.num_votes):
                 seg_pred, _ = classifier(points, to_categorical(label, num_classes))
                 vote_pool += seg_pred
@@ -118,7 +118,9 @@ def main(args):
             for i in range(cur_batch_size):
                 cat = seg_label_to_cat[target[i, 0]]
                 logits = cur_pred_val_logits[i, :, :]
-                cur_pred_val[i, :] = np.argmax(logits[:, seg_classes[cat]], 1) + seg_classes[cat][0]
+                cur_pred_val[i, :] = np.argmax(logits[:, seg_classes[cat]], 1) + seg_classes[cat][0]  # 挑选指定类别下的预测列，然后选取最大值
+                # cur_pred_val[i, :] = np.argmax(logits, 1)  # why not use the method
+                print(cur_pred_val, cur_pred_val.shape)
 
             correct = np.sum(cur_pred_val == target)
             total_correct += correct

@@ -1,10 +1,11 @@
 # *_*coding:utf-8 *_*
 import os
 import json
-import warnings
 import numpy as np
 from torch.utils.data import Dataset
+import warnings
 warnings.filterwarnings('ignore')
+
 
 def pc_normalize(pc):
     centroid = np.mean(pc, axis=0)
@@ -13,14 +14,14 @@ def pc_normalize(pc):
     pc = pc / m
     return pc
 
+
 class PartNormalDataset(Dataset):
-    def __init__(self,root = './data/shapenetcore_partanno_segmentation_benchmark_v0_normal', npoints=2500, split='train', class_choice=None, normal_channel=False):
+    def __init__(self, root='./data/shapenetcore_partanno_segmentation_benchmark_v0_normal', npoints=2500, split='train', class_choice=None, normal_channel=False):
         self.npoints = npoints
         self.root = root
         self.catfile = os.path.join(self.root, 'synsetoffset2category.txt')
         self.cat = {}
         self.normal_channel = normal_channel
-
 
         with open(self.catfile, 'r') as f:
             for line in f:
@@ -29,8 +30,8 @@ class PartNormalDataset(Dataset):
         self.cat = {k: v for k, v in self.cat.items()}
         self.classes_original = dict(zip(self.cat, range(len(self.cat))))
 
-        if not class_choice is  None:
-            self.cat = {k:v for k,v in self.cat.items() if k in class_choice}
+        if not class_choice is None:
+            self.cat = {k: v for k, v in self.cat.items() if k in class_choice}
         # print(self.cat)
 
         self.meta = {}
@@ -55,7 +56,7 @@ class PartNormalDataset(Dataset):
             elif split == 'test':
                 fns = [fn for fn in fns if fn[0:-4] in test_ids]
             else:
-                print('Unknown split: %s. Exiting..' % (split))
+                print('Unknown split: %s. Exiting..' % split)
                 exit(-1)
 
             # print(os.path.basename(fns))
@@ -85,7 +86,6 @@ class PartNormalDataset(Dataset):
         self.cache = {}  # from index to (point_set, cls, seg) tuple
         self.cache_size = 20000
 
-
     def __getitem__(self, index):
         if index in self.cache:
             point_set, cls, seg = self.cache[index]
@@ -95,6 +95,7 @@ class PartNormalDataset(Dataset):
             cls = self.classes[cat]
             cls = np.array([cls]).astype(np.int32)
             data = np.loadtxt(fn[1]).astype(np.float32)
+
             if not self.normal_channel:
                 point_set = data[:, 0:3]
             else:
@@ -115,4 +116,8 @@ class PartNormalDataset(Dataset):
         return len(self.datapath)
 
 
-
+if __name__ == "__main__":
+    dataset = PartNormalDataset(root=r"D:\Documents\Downloads\shapenetcore_partanno_segmentation_benchmark_v0_normal")
+    print(len(dataset))
+    points, label, target = dataset[0]
+    print(points, label, target)

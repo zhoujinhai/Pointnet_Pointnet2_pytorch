@@ -3,6 +3,7 @@ import torch.utils.data
 import torch.nn.functional as F
 from pointnet_utils import PointNetEncoder, feature_transform_reguliarzer
 
+
 class get_model(nn.Module):
     def __init__(self, k=40, normal_channel=True):
         super(get_model, self).__init__()
@@ -26,6 +27,7 @@ class get_model(nn.Module):
         x = self.fc3(x)
         x = F.log_softmax(x, dim=1)
         return x, trans_feat
+
 
 class get_loss(torch.nn.Module):
     def __init__(self, mat_diff_loss_scale=0.001):

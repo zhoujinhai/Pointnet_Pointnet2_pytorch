@@ -17,6 +17,7 @@ from pathlib import Path
 from tqdm import tqdm
 from data_utils.ShapeNetDataLoader import PartNormalDataset
 
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = BASE_DIR
 sys.path.append(os.path.join(ROOT_DIR, 'models'))
@@ -34,11 +35,12 @@ for cat in seg_classes.keys():
 def inplace_relu(m):
     classname = m.__class__.__name__
     if classname.find('ReLU') != -1:
-        m.inplace=True
+        m.inplace = True
+
 
 def to_categorical(y, num_classes):
     """ 1-hot encodes a tensor """
-    new_y = torch.eye(num_classes)[y.cpu().data.numpy(),]
+    new_y = torch.eye(num_classes)[y.cpu().data.numpy(), ]
     if (y.is_cuda):
         return new_y.cuda()
     return new_y
@@ -47,8 +49,8 @@ def to_categorical(y, num_classes):
 def parse_args():
     parser = argparse.ArgumentParser('Model')
     parser.add_argument('--model', type=str, default='pointnet_part_seg', help='model name')
-    parser.add_argument('--batch_size', type=int, default=16, help='batch Size during training')
-    parser.add_argument('--epoch', default=251, type=int, help='epoch to run')
+    parser.add_argument('--batch_size', type=int, default=8, help='batch Size during training')
+    parser.add_argument('--epoch', default=5, type=int, help='epoch to run')
     parser.add_argument('--learning_rate', default=0.001, type=float, help='initial learning rate')
     parser.add_argument('--gpu', type=str, default='0', help='specify GPU devices')
     parser.add_argument('--optimizer', type=str, default='Adam', help='Adam or SGD')
@@ -98,7 +100,7 @@ def main(args):
     log_string('PARAMETER ...')
     log_string(args)
 
-    root = 'data/shapenetcore_partanno_segmentation_benchmark_v0_normal/'
+    root = "/home/heygears/jinhai_zhou/data/shapenetcore_partanno_segmentation_benchmark_v0_normal/"  # 'data/shapenetcore_partanno_segmentation_benchmark_v0_normal/'
 
     TRAIN_DATASET = PartNormalDataset(root=root, npoints=args.npoint, split='trainval', normal_channel=args.normal)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATASET, batch_size=args.batch_size, shuffle=True, num_workers=10, drop_last=True)
@@ -107,11 +109,16 @@ def main(args):
     log_string("The number of training data is: %d" % len(TRAIN_DATASET))
     log_string("The number of test data is: %d" % len(TEST_DATASET))
 
-    num_classes = 16
-    num_part = 50
+    num_classes = len(seg_classes)   # 16
+    seg_label_to_cat = {}
+    for cat in seg_classes.keys():
+        for label in seg_classes[cat]:
+            seg_label_to_cat[label] = cat
+    num_part = len(seg_label_to_cat)
+    # num_part = 50
 
     '''MODEL LOADING'''
-    MODEL = importlib.import_module(args.model)
+    MODEL = importlib.import_module(args.model)    # sys.path.append(os.path.join(ROOT_DIR, 'models'))
     shutil.copy('models/%s.py' % args.model, str(exp_dir))
     shutil.copy('models/pointnet2_utils.py', str(exp_dir))
 
@@ -165,7 +172,6 @@ def main(args):
 
     for epoch in range(start_epoch, args.epoch):
         mean_correct = []
-
         log_string('Epoch %d (%d/%s):' % (global_epoch + 1, epoch + 1, args.epoch))
         '''Adjust learning rate and BN momentum'''
         lr = max(args.learning_rate * (args.lr_decay ** (epoch // args.step_size)), LEARNING_RATE_CLIP)
@@ -272,6 +278,7 @@ def main(args):
 
         log_string('Epoch %d test Accuracy: %f  Class avg mIOU: %f   Inctance avg mIOU: %f' % (
             epoch + 1, test_metrics['accuracy'], test_metrics['class_avg_iou'], test_metrics['inctance_avg_iou']))
+
         if (test_metrics['inctance_avg_iou'] >= best_inctance_avg_iou):
             logger.info('Save model...')
             savepath = str(checkpoints_dir) + '/best_model.pth'

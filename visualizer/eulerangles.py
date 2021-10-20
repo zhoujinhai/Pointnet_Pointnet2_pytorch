@@ -69,7 +69,7 @@ The convention of rotation around ``z``, followed by rotation around
 import math
 
 import sys
-if sys.version_info >= (3,0):
+if sys.version_info >= (3, 0):
     from functools import reduce
 
 import numpy as np

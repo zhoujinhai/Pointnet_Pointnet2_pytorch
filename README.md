@@ -120,6 +120,10 @@ Visualization results will save in `log/sem_seg/pointnet2_sem_seg/visual/` and y
 | PointNet2_ssg (Pytorch) | **83.0** | **53.5**| [11.2MB](log/sem_seg/pointnet2_sem_seg) |
 
 ## Visualization
+### View part segmentation result
+> https://github.com/yanx27/Pointnet_Pointnet2_pytorch/issues/117
+> https://github.com/fxia22/pointnet.pytorch/blob/master/utils/show_seg.py
+
 ### Using show3d_balls.py
 ```
 ## build C++ code for visualization
@@ -128,9 +132,9 @@ bash build.sh
 ## run one example 
 python show3d_balls.py
 ```
-![](/visualizer/pic.png)
+![](./visualizer/pic.png)
 ### Using MeshLab
-![](/visualizer/pic2.png)
+![](./visualizer/pic2.png)
 
 
 ## Reference By
