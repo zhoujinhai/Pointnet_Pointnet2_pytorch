@@ -105,7 +105,7 @@ class PartNormalDataset(Dataset):
                 self.cache[index] = (point_set, cls, seg)
         point_set[:, 0:3] = pc_normalize(point_set[:, 0:3])
 
-        choice = np.random.choice(len(seg), self.npoints, replace=True)
+        choice = np.random.choice(len(seg), self.npoints, replace=False)
         # resample
         point_set = point_set[choice, :]
         seg = seg[choice]
@@ -119,5 +119,6 @@ class PartNormalDataset(Dataset):
 if __name__ == "__main__":
     dataset = PartNormalDataset(root=r"D:\Documents\Downloads\shapenetcore_partanno_segmentation_benchmark_v0_normal")
     print(len(dataset))
-    points, label, target = dataset[0]
-    print(points, label, target)
+    points, label, target = dataset[500]
+    print(points[0], type(points[0]), type(points[0][0]), label, type(label), target, type(target))
+

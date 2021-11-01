@@ -4,10 +4,10 @@ from models.pointnet2_utils import PointNetSetAbstractionMsg,PointNetFeatureProp
 
 
 class get_model(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, f_cols=9):
         super(get_model, self).__init__()
 
-        self.sa1 = PointNetSetAbstractionMsg(1024, [0.05, 0.1], [16, 32], 9, [[16, 16, 32], [32, 32, 64]])
+        self.sa1 = PointNetSetAbstractionMsg(1024, [0.05, 0.1], [16, 32], f_cols, [[16, 16, 32], [32, 32, 64]])
         self.sa2 = PointNetSetAbstractionMsg(256, [0.1, 0.2], [16, 32], 32+64, [[64, 64, 128], [64, 96, 128]])
         self.sa3 = PointNetSetAbstractionMsg(64, [0.2, 0.4], [16, 32], 128+128, [[128, 196, 256], [128, 196, 256]])
         self.sa4 = PointNetSetAbstractionMsg(16, [0.4, 0.8], [16, 32], 256+256, [[256, 256, 512], [256, 384, 512]])
@@ -22,7 +22,7 @@ class get_model(nn.Module):
 
     def forward(self, xyz):
         l0_points = xyz
-        l0_xyz = xyz[:,:3,:]
+        l0_xyz = xyz[:, :3, :]
 
         l1_xyz, l1_points = self.sa1(l0_xyz, l0_points)
         l2_xyz, l2_points = self.sa2(l1_xyz, l1_points)
@@ -44,13 +44,18 @@ class get_model(nn.Module):
 class get_loss(nn.Module):
     def __init__(self):
         super(get_loss, self).__init__()
+
     def forward(self, pred, target, trans_feat, weight):
         total_loss = F.nll_loss(pred, target, weight=weight)
 
         return total_loss
 
+
 if __name__ == '__main__':
-    import  torch
-    model = get_model(13)
-    xyz = torch.rand(6, 9, 2048)
+    import torch
+
+    xyz = torch.rand(6, 3, 2048)
+    print(xyz.size(), xyz.size()[1])
+    model = get_model(13, xyz.size()[1])
+
     (model(xyz))

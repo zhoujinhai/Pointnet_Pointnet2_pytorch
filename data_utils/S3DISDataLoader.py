@@ -82,6 +82,7 @@ class S3DISDataset(Dataset):
     def __len__(self):
         return len(self.room_idxs)
 
+
 class ScannetDatasetWholeScene():
     # prepare to give prediction on each points
     def __init__(self, root, block_points=4096, split='test', test_area=5, stride=0.5, block_size=1.0, padding=0.001):
@@ -120,7 +121,7 @@ class ScannetDatasetWholeScene():
 
     def __getitem__(self, index):
         point_set_ini = self.scene_points_list[index]
-        points = point_set_ini[:,:6]
+        points = point_set_ini[:, :6]
         labels = self.semantic_labels_list[index]
         coord_min, coord_max = np.amin(points, axis=0)[:3], np.amax(points, axis=0)[:3]
         grid_x = int(np.ceil(float(coord_max[0] - coord_min[0] - self.block_size) / self.stride) + 1)
@@ -170,6 +171,7 @@ class ScannetDatasetWholeScene():
     def __len__(self):
         return len(self.scene_points_list)
 
+
 if __name__ == '__main__':
     data_root = '/data/yxu/PointNonLocal/data/stanford_indoor3d/'
     num_point, test_area, block_size, sample_rate = 4096, 5, 1.0, 0.01
@@ -184,6 +186,7 @@ if __name__ == '__main__':
     np.random.seed(manual_seed)
     torch.manual_seed(manual_seed)
     torch.cuda.manual_seed_all(manual_seed)
+
     def worker_init_fn(worker_id):
         random.seed(manual_seed + worker_id)
     train_loader = torch.utils.data.DataLoader(point_data, batch_size=16, shuffle=True, num_workers=16, pin_memory=True, worker_init_fn=worker_init_fn)

@@ -31,9 +31,12 @@ class STN3d(nn.Module):
         x = F.relu(self.bn3(self.conv3(x)))
         x = torch.max(x, 2, keepdim=True)[0]
         x = x.view(-1, 1024)
-
-        x = F.relu(self.bn4(self.fc1(x)))
-        x = F.relu(self.bn5(self.fc2(x)))
+        if x.shape[0] == 1:
+            x = F.relu(self.fc1(x))
+            x = F.relu(self.fc2(x))
+        else:
+            x = F.relu(self.bn4(self.fc1(x)))
+            x = F.relu(self.bn5(self.fc2(x)))
         x = self.fc3(x)
 
         iden = Variable(torch.from_numpy(np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]).astype(np.float32))).view(1, 9).repeat(
@@ -72,8 +75,12 @@ class STNkd(nn.Module):
         x = torch.max(x, 2, keepdim=True)[0]
         x = x.view(-1, 1024)
 
-        x = F.relu(self.bn4(self.fc1(x)))
-        x = F.relu(self.bn5(self.fc2(x)))
+        if x.shape[0] == 1:
+            x = F.relu(self.fc1(x))
+            x = F.relu(self.fc2(x))
+        else:
+            x = F.relu(self.bn4(self.fc1(x)))
+            x = F.relu(self.bn5(self.fc2(x)))
         x = self.fc3(x)
 
         iden = Variable(torch.from_numpy(np.eye(self.k).flatten().astype(np.float32))).view(1, self.k * self.k).repeat(

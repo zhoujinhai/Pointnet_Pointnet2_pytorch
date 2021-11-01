@@ -58,13 +58,13 @@ class InferenceClass(object):
     @param2: n_cls, 类别个数
     @param3: use_gpu, 是否使用GPU
     """
-    def __init__(self, model_name, model_path, num_cls=16, num_part=50, use_normal=False, use_gpu=True):
+    def __init__(self, model_name, model_path, label=0, num_cls=16, num_part=50, use_normal=False, use_gpu=True):
         self.num_cls = num_cls
         self.use_normal = use_normal
         self.device = torch.device('cuda:0') if use_gpu and torch.cuda.is_available() else torch.device('cpu')
         model = importlib.import_module(model_name)  # sys.path.append()
         self.net = model.get_model(num_part, normal_channel=use_normal, num_categories=num_cls).to(self.device)
-        self.label = torch.from_numpy(np.array([[4]])).long().to(self.device)
+        self.label = torch.from_numpy(np.array([[label]])).long().to(self.device)
         checkpoint = torch.load(model_path)
         self.net.load_state_dict(checkpoint['model_state_dict'])
         self.net = self.net.eval()
@@ -74,7 +74,16 @@ class InferenceClass(object):
     @param1: data_path, 数据路径
     """
     def process_data(self, data_path):
-        data = np.loadtxt(data_path).astype(np.float32)
+        ext = os.path.splitext(data_path)[-1]
+        data = None
+        if ext == ".txt":
+            data = np.loadtxt(data_path).astype(np.float32)
+        elif ext == ".pcd":
+            data = np.loadtxt(data_path, skiprows=10).astype(np.float32)
+
+        if data is None:
+            return
+
         if not self.use_normal:
             point_set = data[:, 0:3]
         else:
@@ -105,26 +114,36 @@ class InferenceClass(object):
 def show_pcl_data(data, label_cls=-1):
     import vedo
     colours = ["red", "grey", "blue", "brown", "yellow", "green", "black", "pink"]
-    labels = data[:, label_cls].astype(np.int32)  # 最后一列为标签列
+    labels = data[:, label_cls]  # 最后一列为标签列
     diff_label = np.unique(labels)
+    print("diff_label: ", diff_label)
     group_points = []
     for label in diff_label:
-        point_group = data[labels == label]
-        group_points.append(point_group[:, :3])
-    points = np.asarray(group_points, dtype=object)
+        point_group = points[labels == label]
+        group_points.append(point_group)
 
     show_pts = []
-    for i, point in enumerate(points):
+    for i, point in enumerate(group_points):
         pt = vedo.Points(point.reshape(-1, 3)).pointSize(6).c((colours[i % len(colours)]))  # 显示点
         show_pts.append(pt)
     vedo.show(show_pts)
 
 
 if __name__ == '__main__':
-    model_name = "pointnet2_part_seg_msg"
-    model_path = "log/part_seg/pointnet2_part_seg_msg_test_normal/checkpoints/best_model.pth"
+    classes = {'Airplane': 0, 'Bag': 1, 'Cap': 2, 'Car': 3, 'Chair': 4, 'Earphone': 5, 'Guitar': 6,
+               'Knife': 7, 'Lamp': 8, 'Laptop': 9, 'Motorbike': 10, 'Mug': 11, 'Pistol': 12,
+               'Rocket': 13, 'Skateboard': 14, 'Table': 15}
+    categories = {'02691156': 'Airplane', '02773838': "Bag", '02954340': "Cap", '02958343': "Car",
+                  '03001627': "Chair", '03261776': "Earphone", '03467517': "Guitar", '03624134': "Knife",
+                  '03636649': "Lamp", '03642806': "Laptop", '03790512': "Motorbike", '03797390': "Mug",
+                  '03948459': "Pistol", '04099429': "Rocket", '04225987': "Skateboard", '04379243': "Table"}
+    model_name = "pointnet_part_seg"
+    model_path = "log/part_seg/pointnet_part_seg_test/checkpoints/best_model.pth"
     data_path = r"D:\Documents\Downloads\shapenetcore_partanno_segmentation_benchmark_v0_normal/03001627/355fa0f35b61fdd7aa74a6b5ee13e775.txt"
-    inference = InferenceClass(model_name, model_path, num_cls=16, num_part=50, use_normal=True, use_gpu=True)
+    cate_id = os.path.basename(os.path.dirname(data_path))
+    cate = categories[cate_id]
+    label = classes[cate]
+    inference = InferenceClass(model_name, model_path, label=label, num_cls=16, num_part=50, use_normal=False, use_gpu=True)
     res = inference.inference(data_path)
 
     points = np.loadtxt(data_path)[:, :3]
