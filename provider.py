@@ -218,17 +218,41 @@ def jitter_point_cloud(batch_data, sigma=0.01, clip=0.05):
     return jittered_data
 
 
-def rotate_point_cloud(batch_data, shift_range=0.1):
+def rotate_point_cloud_xyz(batch_data, min_theta=0, max_theat=360):
     """ Randomly shift point cloud. Shift is per point cloud.
         Input:
           BxNx3 array, original batch of point clouds / BxNx6， points with normal
         Return:
-          BxNx3 array, shifted batch of point clouds / BxNx6
+          BxNx3 array, rotated batch of point clouds / BxNx6
     """
+    angle = np.random.uniform(min_theta, max_theat, 1)
+    theta = angle / 180 * np.pi
+    sin_theta = np.sin(theta)
+    cos_theta = np.cos(theta)
+
     B, N, C = batch_data.shape
-    shifts = np.random.uniform(-shift_range, shift_range, (B, 3))
-    for batch_index in range(B):
-        batch_data[batch_index, :, :] += shifts[batch_index, :]
+    # around X axis, Y axis, Z axis
+    rot_mats = np.array([[[1, 0, 0, 0], [0, cos_theta, -sin_theta, 0], [0, sin_theta, cos_theta, 0], [0, 0, 0, 1]],
+                         [[cos_theta, 0, sin_theta, 0], [0, 1, 0, 0], [-sin_theta, 0, cos_theta, 0], [0, 0, 0, 1]],
+                         [[cos_theta, -sin_theta, 0, 0], [sin_theta, cos_theta, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+                         ])
+    rot_ids = np.random.randint(0, 3, B)
+
+    if C == 3:
+        for batch_index in range(B):
+            len_data = len(batch_data[batch_index])
+            ones = np.ones(len_data).reshape(-1, 1)
+            rot_res = np.matmul(np.hstack((batch_data[batch_index, :, :], ones)), rot_mats[rot_ids[batch_index]])
+            batch_data[batch_index, :, :] = rot_res[:, :3]
+    elif C == 6:
+        for batch_index in range(B):
+            len_data = len(batch_data[batch_index])
+            ones = np.ones(len_data).reshape(-1, 1)
+            rot_res = np.matmul(np.hstack((batch_data[batch_index, :, :3], ones)), rot_mats[rot_ids[batch_index]])
+            batch_data[batch_index, :, :3] = rot_res[:, :3]
+
+            rot_res = np.matmul(np.hstack((batch_data[batch_index, :, 3:6], ones)), rot_mats[rot_ids[batch_index]])
+            batch_data[batch_index, :, 3:6] = rot_res[:, :3]
     return batch_data
 
 

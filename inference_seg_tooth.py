@@ -107,10 +107,11 @@ class InferenceClass(object):
     desc: inference points
     @param1: points, 点集
     """
-    def inference(self, data_path, use_dataset=True):
+    def inference(self, data_path, use_dataset=True, split="test"):
         if self.model_type == "part":
             if use_dataset:
-                dataset = PartNormalDataset(root=r"D:\Debug_dir\pcd_with_label_normal", split='test', shuffle=False, normal_channel=self.use_normal)  # /home/heygears/jinhai_zhou/data/pcd_with_label
+                dataset = PartNormalDataset(root=r"D:\Debug_dir\pcd_with_label_normal", split=split, shuffle=False, normal_channel=self.use_normal)  #
+                # /home/heygears/jinhai_zhou/data/pcd_with_label
                 dataLoader = torch.utils.data.DataLoader(dataset, batch_size=1, collate_fn=my_collate_fn)
                 for i_batch, (data, cls, label) in enumerate(dataLoader):
                         points = data.float().to(self.device)
@@ -185,7 +186,7 @@ def show_pcl_data(data, label_cls=-1):
     colours = ["grey", "red", "blue", "brown", "yellow", "green", "black", "pink"]
     labels = data[:, label_cls]  # 最后一列为标签列
     diff_label = np.unique(labels)
-    print("diff_label: ", diff_label)
+    print("res_label: ", diff_label)
     group_points = []
     for label in diff_label:
         point_group = points[labels == label]
@@ -200,9 +201,9 @@ def show_pcl_data(data, label_cls=-1):
 
 if __name__ == '__main__':
     model_name = "pointnet2_part_seg_msg"
-    model_path = "log/part_seg/pointnet2_part_seg_msg_tooth_weight_1024_normal_1/checkpoints/best_model.pth"
-    data_path = r"D:\Debug_dir\pcd_with_label\0824-fangshedaoban-kehushuju (101)_minCruv.pcd"
+    model_path = "log/part_seg/pointnet2_part_seg_msg_tooth_1024_2_rotate/checkpoints/best_model.pth"
+    data_path = r"D:\Debug_dir\pcd_with_label_normal\0824-fangshedaoban-kehushuju (101)_minCruv.pcd"
     model_type = "part" if model_name.find("part") != -1 else "sem"
-    inference = InferenceClass(model_name, model_path, model_type, use_normal=True, use_gpu=True)
+    inference = InferenceClass(model_name, model_path, model_type, use_normal=False, use_gpu=True)
     use_datasets = True
-    res = inference.inference(data_path, use_datasets)
+    res = inference.inference(data_path, use_datasets, "test_all")

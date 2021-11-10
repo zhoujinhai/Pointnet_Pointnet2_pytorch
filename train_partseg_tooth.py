@@ -48,8 +48,8 @@ def to_categorical(y, num_classes):
 def parse_args():
     parser = argparse.ArgumentParser('Model')
     parser.add_argument('--model', type=str, default='pointnet2_part_seg_msg', help='model name')
-    parser.add_argument('--batch_size', type=int, default=1, help='batch Size during training')
-    parser.add_argument('--epoch', default=300, type=int, help='epoch to run')
+    parser.add_argument('--batch_size', type=int, default=2, help='batch Size during training')
+    parser.add_argument('--epoch', default=1500, type=int, help='epoch to run')
     parser.add_argument('--learning_rate', default=0.001, type=float, help='initial learning rate')
     parser.add_argument('--gpu', type=str, default='0', help='specify GPU devices')
     parser.add_argument('--optimizer', type=str, default='Adam', help='Adam or SGD')
@@ -109,6 +109,7 @@ def main(args):
     log_string("The number of test data is: %d" % len(TEST_DATASET))
 
     weights = torch.Tensor(TRAIN_DATASET.label_weights).cuda()
+    # weights = torch.Tensor(np.array([1.0, 1.0])).cuda()
     num_classes = len(seg_classes)   # 1
     seg_label_to_cat = {}
     for cat in seg_classes.keys():
@@ -199,6 +200,10 @@ def main(args):
             points = points.data.numpy()
             points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
             points[:, :, 0:3] = provider.shift_point_cloud(points[:, :, 0:3])
+            if args.normal:
+                points[:, :, 0:6] = provider.rotate_point_cloud_xyz(points[:, :, 0:6])
+            else:
+                points[:, :, 0:3] = provider.rotate_point_cloud_xyz(points[:, :, 0:3])
             points = torch.Tensor(points)
             points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
             points = points.transpose(2, 1)

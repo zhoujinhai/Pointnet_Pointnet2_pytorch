@@ -22,7 +22,7 @@ class PartNormalDataset(Dataset):
         self.normal_channel = normal_channel
 
         pcd_files = glob.glob(os.path.join(self.root, "*.pcd"))
-        if split != "test":
+        if split.find("test") == -1:
             label_weights = np.zeros(2)
             for pcd_file in pcd_files:
                 data = np.loadtxt(pcd_file, skiprows=10).astype(np.float32)
@@ -33,7 +33,7 @@ class PartNormalDataset(Dataset):
             label_weights = label_weights.astype(np.float32)
             label_weights = label_weights / np.sum(label_weights)
             self.label_weights = np.amax(label_weights) / label_weights
-
+        # print(self.label_weights, type(self.label_weights))
         n_data = len(pcd_files)
         if shuffle:
             random.shuffle(pcd_files)  # 随机打乱
@@ -54,7 +54,7 @@ class PartNormalDataset(Dataset):
         self.seg_classes = {'toothModel': [0, 1]}
 
         self.cache = {}  # from index to (point_set, cls, seg) tuple
-        self.cache_size = 20
+        self.cache_size = 10
 
     def __getitem__(self, index):
         if index in self.cache:
@@ -212,8 +212,14 @@ if __name__ == "__main__":
     # print(points[0], type(points[0]), type(points[0][0]), label, type(label), target, type(target))
     dataLoader = torch.utils.data.DataLoader(dataset, batch_size=1, collate_fn=my_collate_fn)
     print(len(dataLoader))
-    for i_batch, (data, cls, label) in enumerate(dataLoader):
+    import provider
+    for i_batch, (points, cls, label) in enumerate(dataLoader):
         if i_batch == 0:
-            print(data, label)
-            print(data.shape)
-
+            print(points, label)
+            print(points.shape)
+            np.savetxt(r"D:\Debug_dir\origin.pts", points[0])
+            points = points.data.numpy()
+            points[:, :, 0:6] = provider.rotate_point_cloud_xyz(points[:, :, 0:6])
+            print(points)
+            print(points[0].shape)
+            np.savetxt(r"D:\Debug_dir\rotated.pts", points[0])
