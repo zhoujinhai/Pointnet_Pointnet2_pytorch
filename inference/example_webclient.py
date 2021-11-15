@@ -40,7 +40,7 @@ async def do_recognize(web_ip, web_port, file_path, obj_data=None):
         if web_ip == "127.0.0.1":
             request = dict(file_path=file_path, filename=codename)
         else:
-            request = dict(points_base64=obj_data, filename=codename)
+            request = dict(obj_base64=obj_data, filename=codename)
         print('filename: {}'.format(file_path))
         async with aiohttp.ClientSession() as session:
             async with session.post(url='http://{}:{}/recognize'.format(web_ip, web_port),

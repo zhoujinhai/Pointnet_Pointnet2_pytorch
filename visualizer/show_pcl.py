@@ -76,19 +76,8 @@ if __name__ == "__main__":
     # show_pcl(file_path)
 
     import glob
-    files = glob.glob(os.path.join(r"D:\Debug_dir\pcd_with_label", "*.pcd"))
+    files = glob.glob(os.path.join(r"D:\Debug_dir\test", "*.pcd"))
     for i, file in enumerate(files):
 
         print(i, file)
         show_pcl(file)
-
-    # hard data
-    # 0824-fangshedaoban-kehushuju (118)_minCruv.pcd
-    # 0824-fangshedaoban-kehushuju (22)_minCruv.pcd
-    # 0824-fangshedaoban-kehushuju (38)_minCruv.pcd
-    # 0824-fangshedaoban-kehushuju (39)_minCruv.pcd
-    # 0824-fangshedaoban-kehushuju (48)_minCruv.pcd
-    # 0824-fangshedaoban-kehushuju (53)_minCruv.pcd
-    # 0824-fangshedaoban-kehushuju (62)_minCruv.pcd
-    # 0824-fangshedaoban-kehushuju (63)_minCruv.pcd
-    # 0824-fangshedaoban-kehushuju (71)_minCruv.pcd

@@ -4,6 +4,7 @@ import json
 import asyncio
 import os
 import base64
+import config
 
 
 def decode_from_base64(base64_utf8):
@@ -30,7 +31,7 @@ def throttle(func):
 class MeshWebServer(object):
     def __init__(self, max_request=5, cache_dir=None):
         self._app = web.Application()
-        self._engine = InferenceClass()
+        self._engine = InferenceClass(model_path=config.model_path, use_normal=config.use_normal, use_gpu=config.use_gpu)
         self._concurrency = asyncio.BoundedSemaphore(max_request)
         self._lock = asyncio.Lock()
         if cache_dir is not None:
@@ -57,11 +58,11 @@ class MeshWebServer(object):
         if content_type == "application/json":
             try:
                 data = await request.json()
-                if 'points_base64' in data:
+                if 'obj_base64' in data:
                     points = decode_from_base64(data['points_base64'])
                     points = points.decode()
-                if "points" in data:
-                    points = data["points"]
+                if "obj" in data:
+                    points = data["obj"]
                 if 'filename' in data:
                     filename = data['filename']
                 else:
