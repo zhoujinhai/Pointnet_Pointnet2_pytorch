@@ -33,7 +33,7 @@ class InferenceClass(object):
         self.num_cls = 1
         self.num_part = 2
         self.net = get_model(self.num_part, normal_channel=use_normal, num_categories=self.num_cls).to(self.device)
-        self.label = torch.from_numpy(np.array([[0]])).long().to(self.device)
+        self.label = torch.tensor([[0]]).long().to(self.device)
         self.cate = to_categorical(self.label, self.num_cls)
         checkpoint = torch.load(model_path)
         self.net.load_state_dict(checkpoint['model_state_dict'])
