@@ -61,7 +61,7 @@ def farthest_point_sample(xyz, npoint):
     B, N, C = xyz.shape
     centroids = torch.zeros(B, npoint, dtype=torch.long).to(device)
     distance = torch.ones(B, N).to(device) * 1e10
-    farthest = torch.randint(0, N, (B,), dtype=torch.long).to(device)  # random choice
+    farthest = torch.arange(0, B, dtype=torch.long).to(device)  # torch.randint(0, N, (B,), dtype=torch.long).to(device)  # random choice
     # v, idx = xyz[:, :, 0].max(1)
     # farthest = idx.type(torch.long).to(device)
     batch_indices = torch.arange(B, dtype=torch.long).to(device)
@@ -346,4 +346,4 @@ class get_model(nn.Module):
         x = self.conv2(x)
         x = F.log_softmax(x, dim=1)
         x = x.permute(0, 2, 1)
-        return x, l3_points
+        return x

@@ -1,7 +1,7 @@
 import os
 import torch
 import numpy as np
-from network import get_model
+from net2onnx import get_model
 
 
 def to_categorical(y, num_classes):
@@ -92,7 +92,7 @@ class InferenceClass(object):
         points = points.transpose(2, 1)
 
         with torch.no_grad():
-            seg_pred, _ = self.net(points, self.cate)
+            seg_pred = self.net(points, self.cate)
             cur_pred_val = seg_pred.cpu().data.numpy()
 
             cur_pred_val_logits = cur_pred_val

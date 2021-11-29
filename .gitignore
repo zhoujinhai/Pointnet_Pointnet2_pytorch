@@ -25,6 +25,8 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.pt
+*.onnx
 MANIFEST
 
 # PyInstaller
