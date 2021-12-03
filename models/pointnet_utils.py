@@ -26,6 +26,7 @@ class STN3d(nn.Module):
 
     def forward(self, x):
         batchsize = x.size()[0]
+        print("STN3d: ", x.shape)
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))

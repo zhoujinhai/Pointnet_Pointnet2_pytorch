@@ -1,3 +1,3 @@
-model_path = "./models/weights.pth"
+model_path = "./models/DentureTexture.pth"
 use_normal = False
 use_gpu = True
