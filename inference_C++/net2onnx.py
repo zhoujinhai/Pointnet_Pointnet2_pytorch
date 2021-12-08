@@ -25,7 +25,8 @@ def index_points(points, idx):
         new_points:, indexed points data, [B, S, C]
     """
     device = points.device
-    B = points.shape[0]
+    B = int(points.shape[0])
+
     view_shape = list(idx.shape)
     # view_shape[1:] = [1] * (len(view_shape) - 1)
     for i in range(1, len(view_shape)):
@@ -55,6 +56,7 @@ def square_distance(src, dst):
     """
     B, N, _ = src.shape
     _, M, _ = dst.shape
+    B, N, M = int(B), int(N), int(M)
     dist = -2 * torch.matmul(src, dst.permute(0, 2, 1))
     dist += torch.sum(src ** 2, -1).view(B, N, 1)
     dist += torch.sum(dst ** 2, -1).view(B, 1, M)
@@ -71,6 +73,7 @@ def farthest_point_sample(xyz, npoint: int):
     """
     device = xyz.device
     B, N, C = xyz.shape
+    B, N, C, npoint = int(B), int(N), int(C), int(npoint)
     centroids = torch.zeros(B, npoint, dtype=torch.long).to(device)
     distance = torch.ones(B, N).to(device) * 1e10
     # farthest = torch.randint(0, N, (B,), dtype=torch.long).to(device)  # random choice
@@ -103,6 +106,7 @@ def query_ball_point(radius: float, nsample: int, xyz, new_xyz):
     device = xyz.device
     B, N, C = xyz.shape
     _, S, _ = new_xyz.shape
+    B, N, C, S = int(B), int(N), int(C), int(S)
     group_idx = torch.arange(N, dtype=torch.long).to(device).view(1, 1, N).repeat([B, S, 1])
     sqrdists = square_distance(new_xyz, xyz)
     # mask = sqrdists > radius ** 2
@@ -129,6 +133,7 @@ def sample_and_group_all(xyz, points):
     """
     device = xyz.device
     B, N, C = xyz.shape
+    B, N, C = int(B), int(N), int(C)
     new_xyz = torch.zeros(B, 1, C).to(device)
     grouped_xyz = xyz.view(B, 1, N, C)
     new_points = torch.cat([grouped_xyz, points.view(B, 1, N, -1)], dim=-1)
@@ -152,7 +157,9 @@ def sample_and_group(npoint: int, radius: float, nsample: int, xyz, points):
         new_points: sampled points data, [B, npoint, nsample, 3+D]
     """
     B, N, C = xyz.shape
+    npoint = int(npoint)
     S = npoint
+    B, N, C = int(B), int(N), int(C)
     fps_idx = farthest_point_sample(xyz, npoint)   # [B, npoint, C]
     # fps_idx = torch.ops.my_ops.fps(xyz, npoint)
     new_xyz = index_points(xyz, fps_idx)
@@ -430,7 +437,8 @@ class PointNetSetAbstractionMsg1(nn.Module):
         points = points.permute(0, 2, 1)
 
         B, N, C = xyz.shape
-        S = self.npoint
+        B, N, C = int(B), int(N), int(C)
+        S = int(self.npoint)
         new_xyz = index_points(xyz, farthest_point_sample(xyz, S))    # 得到最新采样的点
         new_points_list = []
 
@@ -516,7 +524,8 @@ class PointNetSetAbstractionMsg2(nn.Module):
         points = points.permute(0, 2, 1)
 
         B, N, C = xyz.shape
-        S = self.npoint
+        B, N, C = int(B), int(N), int(C)
+        S = int(self.npoint)
         new_xyz = index_points(xyz, farthest_point_sample(xyz, S))    # 得到最新采样的点
         new_points_list = []
 
@@ -615,6 +624,7 @@ class PointNetFeaturePropagation0(nn.Module):
         points2 = points2.permute(0, 2, 1)
         B, N, C = xyz1.shape
         _, S, _ = xyz2.shape
+        B, N, C, S = int(B), int(N), int(C), int(S)
         # print("type S: ", type(S), S, isinstance(S, int), torch.is_tensor(S))
         interpolated_points = points2.repeat(1, N, 1)
 
@@ -660,6 +670,7 @@ class PointNetFeaturePropagation1(nn.Module):
         points2 = points2.permute(0, 2, 1)
         B, N, C = xyz1.shape
         _, S, _ = xyz2.shape
+        B, N, C, S = int(B), int(N), int(C), int(S)
         # print("type S: ", type(S), S, isinstance(S, int), torch.is_tensor(S))
         dists = square_distance(xyz1, xyz2)
         dists, idx = dists.sort(dim=-1)
@@ -701,6 +712,7 @@ class GetModel1(nn.Module):
     def forward(self, xyz, cls_label):
         # Set Abstraction layers
         B, C, N = xyz.shape
+        B, C, N = int(B), int(C), int(N)
         l0_points = xyz
         l0_xyz = xyz
         l1_xyz, l1_points = self.sa1(l0_xyz, l0_points)
@@ -733,31 +745,31 @@ if __name__ == "__main__":
     net = net.eval()
 
     cate = torch.ones((1, 1, 1))
-    points = torch.randn((1, 3, 6000))
+    points = torch.randn((1, 3, 4000))
     out1 = net(points, cate)
     print(points.shape, cate.shape)
     print("out shape: ", out1.shape)
     print("net out: ", out1)
 
     onnx_path = "./model_ori.onnx"
-    print("start convert model to onnx >>>")
-    torch.onnx.export(net,   # support torch.nn.Module, torch.jit.ScriptModule or torch.jit.ScriptFunction
-                      (points, cate),
-                      onnx_path,
-                      verbose=True,
-                      input_names=["points", "cate"],
-                      output_names=["cls_prob"],
-                      opset_version=12,
-                      operator_export_type=torch.onnx.OperatorExportTypes.ONNX,  # ONNX_ATEN_FALLBACK,
-                      dynamic_axes={
-                          # dict value: manually named axes
-                          "points": {0: "batch_size", 1: "channel", 2: "n_points"},
-                          # list value: automatic names
-                          "cls_prob": {0: "batch_size", 1: "n_points", 2: "n_cls"},
-                      }
-                      )
-
-    print("onnx model has exported!")
+    # print("start convert model to onnx >>>")
+    # torch.onnx.export(net,   # support torch.nn.Module, torch.jit.ScriptModule or torch.jit.ScriptFunction
+    #                   (points, cate),
+    #                   onnx_path,
+    #                   verbose=True,
+    #                   input_names=["points", "cate"],
+    #                   output_names=["cls_prob"],
+    #                   opset_version=12,
+    #                   operator_export_type=torch.onnx.OperatorExportTypes.ONNX,  # ONNX_ATEN_FALLBACK,
+    #                   dynamic_axes={
+    #                       # dict value: manually named axes
+    #                       "points": {0: "batch_size", 1: "channel", 2: "n_points"},
+    #                       # list value: automatic names
+    #                       "cls_prob": {0: "batch_size", 1: "n_points", 2: "n_cls"},
+    #                   }
+    #                   )
+    #
+    # print("onnx model has exported!")
 
     # inference by onnx
     import onnxruntime

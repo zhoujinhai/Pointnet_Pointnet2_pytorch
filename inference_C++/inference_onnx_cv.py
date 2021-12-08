@@ -44,6 +44,31 @@ import time
 # cv2.dnn_registerLayer("ConstantOfShape", ConstantOfShapeLayer)   # https://github.com/opencv/opencv/issues/16662
 
 
+class ArgMaxLayer(object):
+    def __init__(self, params, blobs):
+        print("params: ", params)
+        self.axis = params["axis"]
+
+    # Our layer receives one inputs. We need to find the max
+    def getMemoryShapes(self, inputs):
+        print("memory shape", inputs)
+        out_dim = []
+        input_dim = inputs[0]
+        for i in range(len(input_dim)):
+            if i != self.axis:
+                out_dim.append(input_dim[i])
+        return [out_dim]
+
+    def forward(self, inputs):
+        max_id = 0
+        print("inputs: ", inputs)
+        # TODO: find max ids on axis
+        return [[0]]
+
+
+cv2.dnn_registerLayer('ArgMax', ArgMaxLayer)
+
+
 if __name__ == "__main__":
     onnx_path = "./model_ori.onnx"
     onnx_model = onnx.load(onnx_path)
@@ -51,6 +76,8 @@ if __name__ == "__main__":
     with open("./model_graph.txt", "w") as f:
         print("save model_graph...")
         f.write(onnx.helper.printable_graph(onnx_model.graph))
+
+    print("start read onnx model...")
     start = time.time()
     net = cv2.dnn.readNetFromONNX(onnx_path)
     end = time.time()
