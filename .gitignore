@@ -9,6 +9,9 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+inference_C++/inference_cv/build/
+*.pt
+*.onnx
 runs/
 log/
 develop-eggs/
@@ -25,8 +28,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-*.pt
-*.onnx
 MANIFEST
 
 # PyInstaller

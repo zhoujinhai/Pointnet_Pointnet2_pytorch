@@ -1,8 +1,54 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import os
 import cv2
 import numpy as np
+
+
+
+
+def pc_normalize(pc):
+    centroid = np.mean(pc, axis=0)
+    pc = pc - centroid
+    m = np.max(np.sqrt(np.sum(pc ** 2, axis=1)))
+    pc = pc / m
+    return pc
+
+
+def process_data(input_data, is_file=True):
+    data = None
+    if is_file:
+        ext = os.path.splitext(input_data)[-1]
+        if ext == ".txt":
+            data = np.loadtxt(input_data).astype(np.float32)
+        elif ext == ".pcd":
+            data = np.loadtxt(input_data, skiprows=10).astype(np.float32)
+    else:
+        # may be string data
+        input = []
+        lines = input_data.split("\n")
+        for line in lines:
+            if line is "":
+                continue
+            splitted_line = line.split(" ")
+            try:
+                input.append([float(v) for v in splitted_line])
+            except:
+                continue
+        data = np.asarray(input, dtype=np.float32)
+
+    if data is None:
+        return None, None
+
+    point_set = data[:, 0:3]
+
+    point_set[:, 0:3] = pc_normalize(point_set[:, 0:3])
+    choice = np.random.choice(range(0, len(point_set)), len(point_set), replace=False)
+    point_set = point_set[choice, :]
+
+    point_set = np.expand_dims(point_set, axis=0)
+    return torch.from_numpy(point_set), choice
 
 
 def square_distance(src, dst):
@@ -91,16 +137,14 @@ def farthest_point_sample(xyz, npoint):
     """
     device = xyz.device
     B, N, C = xyz.shape
-    # B = int(B)
-    # N = int(N)
-    # C = int(C)
+    B = int(B)
+    N = int(N)
+    C = int(C)
 
     centroids = torch.zeros(B, int(npoint), dtype=torch.long, device=device)
     distance = torch.full((B, N), 1e10, device=device)  # torch.ones(B, N).to(device) * 1e10
     # farthest = torch.randint(0, N, (B,), dtype=torch.long).to(device)  # random choice
-
-    _, farthest = xyz[:, :, 1].max(1)  # torch.max(xyz[:, :, 1], 1)[1]
-
+    farthest = torch.max(xyz[:, :, 1], 1)[1].type(torch.long)
     batch_indices = torch.arange(B, dtype=torch.long, device=device)
 
     for i in range(int(npoint)):
@@ -110,7 +154,7 @@ def farthest_point_sample(xyz, npoint):
         # mask = dist < distance
         # distance[mask] = dist[mask]
         distance = torch.where(dist < distance, dist, distance)
-        farthest = torch.max(distance, -1)[1]
+        farthest = torch.max(distance, 1)[1]
 
     return centroids
 
@@ -124,6 +168,7 @@ class Net(nn.Module):
         # cls_label = torch.ones((1, 1, 1))
         xyz = xyz.permute(0, 1, 3, 2)
         xyz = xyz.squeeze(0)
+
         # B, N, C = xyz.shape
         # select = torch.argmax(xyz, 1)
         # print(xyz.shape)
@@ -142,6 +187,7 @@ class TestNet(nn.Module):
         # xyz==> (B, N, C)
         xyz = xyz.permute(0, 1, 3, 2)
         xyz = xyz.squeeze(0)
+
         select = torch.argmax(xyz, 1)
         # npoint = 2
         # select = farthest_point_sample(xyz, npoint)
@@ -152,6 +198,7 @@ class ArgMaxLayer(object):
     def __init__(self, params, blobs):
         print("params: ", params)
         self.axis = params["axis"]
+        self.dim = None
 
     # Our layer receives one inputs. We need to find the max
     def getMemoryShapes(self, inputs):
@@ -161,15 +208,21 @@ class ArgMaxLayer(object):
         for i in range(len(input_dim)):
             if i != self.axis:
                 out_dim.append(input_dim[i])
-        print(out_dim)
+        print("out_dim", out_dim)
+        self.dim = out_dim
         return [out_dim]
 
     def forward(self, inputs):
-        print("inputs-: ", inputs)
-        # TODO: find max ids on axis
-        data = inputs[self.axis]
-        print("data: ", data)
-        return np.array([[0, 2, 4]])
+        data = inputs[0]
+        print("inputs-: ", type(data), data.dtype, data.shape)
+        # find max ids on axis
+        res = np.argmax(data, axis=self.axis).astype(np.float32)
+        # print("axis: ", self.axis)
+        # shape = data.shape
+        # print("shape: ", shape)
+        # res = np.random.randint(0, shape[self.axis], tuple(self.dim), dtype=np.longlong)
+        print(res, res.shape, res.dtype)
+        return [res]
 
 
 cv2.dnn_registerLayer('ArgMax', ArgMaxLayer)
@@ -233,8 +286,14 @@ if __name__ == "__main__":
     #
     # print("res: ", net.forward())
 
+    # data_path = r"D:\Debug_dir\news_data\pcd_label_normal\bankou (1)_minCruv.pcd"
+    # points, choices = process_data(data_path)
+    # points = points.transpose(2, 1)
+    # print(points.shape)
+    # inputs = points
+
     net = TestNet()
-    inputs = torch.randn((1, 3, 25))
+    inputs = torch.randn((2, 3, 25))
     inputs = inputs.unsqueeze(0)
     out = net(inputs)
     print("**** torch out ******: ", out)
@@ -250,7 +309,7 @@ if __name__ == "__main__":
                       operator_export_type=torch.onnx.OperatorExportTypes.ONNX,  # ONNX_ATEN_FALLBACK,
                       dynamic_axes={
                           "points": {1: "b", 2: "c", 3: "n"},
-                          "res": {0: "b", 1: "n", 2: "c"}
+                          "res": {0: "b", 1: "n"}
                       }
                       )
 
@@ -281,6 +340,8 @@ if __name__ == "__main__":
 
     print("cv2 load model is OK!")
     print("start set input")
+    print("inputs shape: ", inputs.shape)
     net.setInput(inputs.numpy().astype(np.float32), name="points")
     print("set input Done")
-    print("$$$$$cv res$$$$: ", net.forward())
+    cv_res = net.forward()
+    print("$$$$$cv res$$$$: ", cv_res, cv_res.shape, cv_res.dtype, type(cv_res))
