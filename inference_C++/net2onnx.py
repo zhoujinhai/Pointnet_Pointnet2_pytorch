@@ -5,14 +5,14 @@ import numpy as np
 import os
 
 
-# torch.ops.load_library("./inference_onnx/fps.dll")
-#
-#
-# def my_fps(g, xyz, npoints):
-#     return g.op("my_ops::fps", xyz, npoints)
-#
-#
-# torch.onnx.register_custom_op_symbolic("my_ops::fps", my_fps, 9)
+torch.ops.load_library("./inference_onnx/fps.dll")
+
+
+def my_fps(g, xyz, npoints):
+    return g.op("my_ops::fps", xyz, npoints)
+
+
+torch.onnx.register_custom_op_symbolic("my_ops::fps", my_fps, 9)
 
 
 def index_points(points, idx):
@@ -25,7 +25,7 @@ def index_points(points, idx):
         new_points:, indexed points data, [B, S, C]
     """
     device = points.device
-    B = int(points.shape[0])
+    B = points.shape[0]  # int(points.shape[0])
 
     view_shape = list(idx.shape)
     # view_shape[1:] = [1] * (len(view_shape) - 1)
@@ -56,7 +56,7 @@ def square_distance(src, dst):
     """
     B, N, _ = src.shape
     _, M, _ = dst.shape
-    B, N, M = int(B), int(N), int(M)
+    # B, N, M = int(B), int(N), int(M)
     dist = -2 * torch.matmul(src, dst.permute(0, 2, 1))
     dist += torch.sum(src ** 2, -1).view(B, N, 1)
     dist += torch.sum(dst ** 2, -1).view(B, 1, M)
@@ -73,7 +73,7 @@ def farthest_point_sample(xyz, npoint: int):
     """
     device = xyz.device
     B, N, C = xyz.shape
-    B, N, C, npoint = int(B), int(N), int(C), int(npoint)
+    # B, N, C, npoint = int(B), int(N), int(C), int(npoint)
     centroids = torch.zeros(B, npoint, dtype=torch.long).to(device)
     distance = torch.ones(B, N).to(device) * 1e10
     # farthest = torch.randint(0, N, (B,), dtype=torch.long).to(device)  # random choice
@@ -160,8 +160,8 @@ def sample_and_group(npoint: int, radius: float, nsample: int, xyz, points):
     npoint = int(npoint)
     S = npoint
     B, N, C = int(B), int(N), int(C)
-    fps_idx = farthest_point_sample(xyz, npoint)   # [B, npoint, C]
-    # fps_idx = torch.ops.my_ops.fps(xyz, npoint)
+    # fps_idx = farthest_point_sample(xyz, npoint)   # [B, npoint, C]
+    fps_idx = torch.ops.my_ops.fps(xyz, npoint)
     new_xyz = index_points(xyz, fps_idx)
     idx = query_ball_point(radius, nsample, xyz, new_xyz)
     grouped_xyz = index_points(xyz, idx)   # [B, npoint, nsample, C]
@@ -255,8 +255,8 @@ class PointNetSetAbstractionMsg(nn.Module):
 
         B, N, C = xyz.shape
         S = self.npoint
-        new_xyz = index_points(xyz, farthest_point_sample(xyz, S))    # 得到最新采样的点
-        # new_xyz = index_points(xyz, torch.ops.my_ops.fps(xyz, S))
+        # new_xyz = index_points(xyz, farthest_point_sample(xyz, S))    # 得到最新采样的点
+        new_xyz = index_points(xyz, torch.ops.my_ops.fps(xyz, S))
         new_points_list = []
 
         i = 0
@@ -437,9 +437,10 @@ class PointNetSetAbstractionMsg1(nn.Module):
         points = points.permute(0, 2, 1)
 
         B, N, C = xyz.shape
-        B, N, C = int(B), int(N), int(C)
+        # B, N, C = int(B), int(N), int(C)
         S = int(self.npoint)
-        new_xyz = index_points(xyz, farthest_point_sample(xyz, S))    # 得到最新采样的点
+        # new_xyz = index_points(xyz, farthest_point_sample(xyz, S))    # 得到最新采样的点
+        new_xyz = index_points(xyz, torch.ops.my_ops.fps(xyz, S))
         new_points_list = []
 
         group_idx = query_ball_point(self.radius_0, self.nsample_0, xyz, new_xyz)
@@ -526,7 +527,8 @@ class PointNetSetAbstractionMsg2(nn.Module):
         B, N, C = xyz.shape
         B, N, C = int(B), int(N), int(C)
         S = int(self.npoint)
-        new_xyz = index_points(xyz, farthest_point_sample(xyz, S))    # 得到最新采样的点
+        # new_xyz = index_points(xyz, farthest_point_sample(xyz, S))    # 得到最新采样的点
+        new_xyz = index_points(xyz, torch.ops.my_ops.fps(xyz, S))
         new_points_list = []
 
         group_idx = query_ball_point(self.radius_0, self.nsample_0, xyz, new_xyz)
@@ -712,7 +714,7 @@ class GetModel1(nn.Module):
     def forward(self, xyz, cls_label):
         # Set Abstraction layers
         B, C, N = xyz.shape
-        B, C, N = int(B), int(C), int(N)
+        # B, C, N = int(B), int(C), int(N)
         l0_points = xyz
         l0_xyz = xyz
         l1_xyz, l1_points = self.sa1(l0_xyz, l0_points)
@@ -752,24 +754,24 @@ if __name__ == "__main__":
     print("net out: ", out1)
 
     onnx_path = "./model_ori.onnx"
-    # print("start convert model to onnx >>>")
-    # torch.onnx.export(net,   # support torch.nn.Module, torch.jit.ScriptModule or torch.jit.ScriptFunction
-    #                   (points, cate),
-    #                   onnx_path,
-    #                   verbose=True,
-    #                   input_names=["points", "cate"],
-    #                   output_names=["cls_prob"],
-    #                   opset_version=12,
-    #                   operator_export_type=torch.onnx.OperatorExportTypes.ONNX,  # ONNX_ATEN_FALLBACK,
-    #                   dynamic_axes={
-    #                       # dict value: manually named axes
-    #                       "points": {0: "batch_size", 1: "channel", 2: "n_points"},
-    #                       # list value: automatic names
-    #                       "cls_prob": {0: "batch_size", 1: "n_points", 2: "n_cls"},
-    #                   }
-    #                   )
-    #
-    # print("onnx model has exported!")
+    print("start convert model to onnx >>>")
+    torch.onnx.export(net,   # support torch.nn.Module, torch.jit.ScriptModule or torch.jit.ScriptFunction
+                      (points, cate),
+                      onnx_path,
+                      verbose=True,
+                      input_names=["points", "cate"],
+                      output_names=["cls_prob"],
+                      opset_version=12,
+                      operator_export_type=torch.onnx.OperatorExportTypes.ONNX,  # ONNX_ATEN_FALLBACK,
+                      dynamic_axes={
+                          # dict value: manually named axes
+                          "points": {0: "batch_size", 1: "channel", 2: "n_points"},
+                          # list value: automatic names
+                          "cls_prob": {0: "batch_size", 1: "n_points", 2: "n_cls"},
+                      }
+                      )
+
+    print("onnx model has exported!")
 
     # inference by onnx
     import onnxruntime

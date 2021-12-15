@@ -78,6 +78,36 @@ class ArgMaxLayer(object):
 cv2.dnn_registerLayer('ArgMax', ArgMaxLayer)
 
 
+class FPSLayer(object):
+    def __init__(self, params, blobs):
+        print("params: ", params)
+        print("blobs: ", blobs)
+        self.npoint = int(blobs[0][0][0])
+
+    # Our layer receives one inputs. We need to find the max
+    def getMemoryShapes(self, inputs):
+        print("memory shape inputs: ", inputs)
+        out_dim = []
+        input_dim = inputs[0]
+        out_dim.append(input_dim[0])
+        out_dim.append(self.npoint)
+        print("out_dim: ", out_dim)
+        return [out_dim]
+
+    def forward(self, inputs):
+        print("inputs size: ", len(inputs))
+        data = inputs[0]
+        print("data -: ", type(data), data.dtype, data.shape)
+        # TODO: get the farthest point's ids
+        rand_data = np.random.randint(0, data.shape[1], (data.shape[0], self.npoint))
+        res = rand_data.astype(np.float32)
+        print(res, res.shape, res.dtype)
+        return [res]
+
+
+cv2.dnn_registerLayer('fps', FPSLayer)
+
+
 if __name__ == "__main__":
     onnx_path = "./model_ori.onnx"
     onnx_model = onnx.load(onnx_path)

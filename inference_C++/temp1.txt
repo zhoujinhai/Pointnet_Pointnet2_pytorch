@@ -1,162 +1,166 @@
-graph torch-jit-export (
-  %points[FLOAT, 1xbxcxn]
-) {
-  %1 = Transpose[perm = [0, 1, 3, 2]](%points)
-  %2 = Squeeze[axes = [0]](%1)
-  %3 = Shape(%2)
-  %4 = Constant[value = <Scalar Tensor []>]()
-  %5 = Gather[axis = 0](%3, %4)
-  %6 = Shape(%2)
-  %7 = Constant[value = <Scalar Tensor []>]()
-  %8 = Gather[axis = 0](%6, %7)
-  %9 = Constant[value = <Scalar Tensor []>]()
-  %10 = Unsqueeze[axes = [0]](%5)
-  %11 = Unsqueeze[axes = [0]](%9)
-  %12 = Concat[axis = 0](%10, %11)
-  %13 = ConstantOfShape[value = <Tensor>](%12)
-  %14 = Unsqueeze[axes = [0]](%5)
-  %15 = Unsqueeze[axes = [0]](%8)
-  %16 = Concat[axis = 0](%14, %15)
-  %17 = ConstantOfShape[value = <Tensor>](%16)
-  %18 = Constant[value = <Scalar Tensor []>]()
-  %19 = Gather[axis = 2](%2, %18)
-  %20 = ArgMax[axis = 1, keepdims = 0](%19)
-  %21 = Cast[to = 7](%5)
-  %22 = Constant[value = <Scalar Tensor []>]()
-  %23 = Constant[value = <Scalar Tensor []>]()
-  %24 = Range(%22, %21, %23)
-  %25 = Constant[value = <Scalar Tensor []>]()
-  %26 = Constant[value = <Tensor>]()
-  %27 = Reshape(%20, %26)
-  %28 = Constant[value = <Tensor>]()
-  %29 = Shape(%28)
-  %30 = ConstantOfShape[value = <Tensor>](%29)
-  %31 = Constant[value = <Scalar Tensor []>]()
-  %32 = Mul(%30, %31)
-  %33 = Constant[value = <Tensor>]()
-  %34 = Equal(%33, %32)
-  %35 = Where(%34, %30, %28)
-  %36 = Expand(%27, %35)
-  %37 = Shape(%13)
-  %38 = Constant[value = <Scalar Tensor []>]()
-  %39 = Gather[axis = 0](%37, %38)
-  %40 = Cast[to = 7](%39)
-  %41 = Constant[value = <Scalar Tensor []>]()
-  %42 = Constant[value = <Scalar Tensor []>]()
-  %43 = Range(%41, %40, %42)
-  %44 = Unsqueeze[axes = [0]](%25)
-  %45 = Constant[value = <Tensor>]()
-  %46 = Reshape(%43, %45)
-  %47 = Constant[value = <Tensor>]()
-  %48 = Reshape(%44, %47)
-  %49 = Add(%46, %48)
-  %50 = Shape(%49)
-  %51 = Shape(%50)
-  %52 = ConstantOfShape[value = <Tensor>](%51)
-  %53 = Constant[value = <Scalar Tensor []>]()
-  %54 = Mul(%52, %53)
-  %55 = Equal(%50, %54)
-  %56 = Where(%55, %52, %50)
-  %57 = Expand(%46, %56)
-  %58 = Unsqueeze[axes = [-1]](%57)
-  %59 = Shape(%50)
-  %60 = ConstantOfShape[value = <Tensor>](%59)
-  %61 = Constant[value = <Scalar Tensor []>]()
-  %62 = Mul(%60, %61)
-  %63 = Equal(%50, %62)
-  %64 = Where(%63, %60, %50)
-  %65 = Expand(%48, %64)
-  %66 = Unsqueeze[axes = [-1]](%65)
-  %67 = Concat[axis = -1](%58, %66)
-  %68 = Shape(%13)
-  %69 = Constant[value = <Tensor>]()
-  %70 = Constant[value = <Tensor>]()
-  %71 = Constant[value = <Tensor>]()
-  %72 = Slice(%68, %70, %71, %69)
-  %73 = Concat[axis = 0](%50, %72)
-  %74 = Reshape(%36, %73)
-  %75 = ScatterND(%13, %67, %74)
-  %76 = Cast[to = 7](%24)
-  %77 = Cast[to = 7](%20)
-  %78 = Shape(%2)
-  %79 = Constant[value = <Tensor>]()
-  %80 = Gather[axis = 0](%78, %79)
-  %81 = Constant[value = <Tensor>]()
-  %82 = Gather[axis = 0](%78, %81)
-  %83 = Flatten[axis = 2](%2)
-  %84 = Mul(%76, %80)
-  %85 = Add(%77, %84)
-  %86 = Gather[axis = 0](%83, %85)
-  %87 = Shape(%85)
-  %88 = Constant[value = <Tensor>]()
-  %89 = Concat[axis = 0](%88, %82)
-  %90 = Reshape(%86, %89)
-  %91 = Concat[axis = 0](%87, %82)
-  %92 = Reshape(%90, %91)
-  %93 = Constant[value = <Scalar Tensor []>]()
-  %94 = Constant[value = <Scalar Tensor []>]()
-  %95 = Unsqueeze[axes = [0]](%5)
-  %96 = Unsqueeze[axes = [0]](%93)
-  %97 = Unsqueeze[axes = [0]](%94)
-  %98 = Concat[axis = 0](%95, %96, %97)
-  %99 = Reshape(%92, %98)
-  %100 = Sub(%2, %99)
-  %101 = Constant[value = <Scalar Tensor []>]()
-  %102 = Pow(%100, %101)
-  %103 = ReduceSum[axes = [-1], keepdims = 0](%102)
-  %104 = Less(%103, %17)
-  %105 = Where(%104, %103, %17)
-  %106 = ArgMax[axis = -1, keepdims = 0](%105)
-  %107 = Constant[value = <Scalar Tensor []>]()
-  %108 = Constant[value = <Tensor>]()
-  %109 = Reshape(%106, %108)
-  %110 = Constant[value = <Tensor>]()
-  %111 = Shape(%110)
-  %112 = ConstantOfShape[value = <Tensor>](%111)
-  %113 = Constant[value = <Scalar Tensor []>]()
-  %114 = Mul(%112, %113)
-  %115 = Constant[value = <Tensor>]()
-  %116 = Equal(%115, %114)
-  %117 = Where(%116, %112, %110)
-  %118 = Expand(%109, %117)
-  %119 = Shape(%75)
-  %120 = Constant[value = <Scalar Tensor []>]()
-  %121 = Gather[axis = 0](%119, %120)
-  %122 = Cast[to = 7](%121)
-  %123 = Constant[value = <Scalar Tensor []>]()
-  %124 = Constant[value = <Scalar Tensor []>]()
-  %125 = Range(%123, %122, %124)
-  %126 = Unsqueeze[axes = [0]](%107)
-  %127 = Constant[value = <Tensor>]()
-  %128 = Reshape(%125, %127)
-  %129 = Constant[value = <Tensor>]()
-  %130 = Reshape(%126, %129)
-  %131 = Add(%128, %130)
-  %132 = Shape(%131)
-  %133 = Shape(%132)
-  %134 = ConstantOfShape[value = <Tensor>](%133)
-  %135 = Constant[value = <Scalar Tensor []>]()
-  %136 = Mul(%134, %135)
-  %137 = Equal(%132, %136)
-  %138 = Where(%137, %134, %132)
-  %139 = Expand(%128, %138)
-  %140 = Unsqueeze[axes = [-1]](%139)
-  %141 = Shape(%132)
-  %142 = ConstantOfShape[value = <Tensor>](%141)
-  %143 = Constant[value = <Scalar Tensor []>]()
-  %144 = Mul(%142, %143)
-  %145 = Equal(%132, %144)
-  %146 = Where(%145, %142, %132)
-  %147 = Expand(%130, %146)
-  %148 = Unsqueeze[axes = [-1]](%147)
-  %149 = Concat[axis = -1](%140, %148)
-  %150 = Shape(%75)
-  %151 = Constant[value = <Tensor>]()
-  %152 = Constant[value = <Tensor>]()
-  %153 = Constant[value = <Tensor>]()
-  %154 = Slice(%150, %152, %153, %151)
-  %155 = Concat[axis = 0](%132, %154)
-  %156 = Reshape(%118, %155)
-  %select_ids = ScatterND(%75, %149, %156)
-  return %select_ids
-}
+graph(%points : Float(1, 1, 3, 1500),
+      %sa1.conv_blocks_0_0.weight : Float(32, 6, 1, 1),
+      %sa1.conv_blocks_0_0.bias : Float(32),
+      %sa1.bn_blocks_0_0.weight : Float(32),
+      %sa1.bn_blocks_0_0.bias : Float(32),
+      %sa1.bn_blocks_0_0.running_mean : Float(32),
+      %sa1.bn_blocks_0_0.running_var : Float(32),
+      %sa1.bn_blocks_0_0.num_batches_tracked : Long(),
+      %sa1.conv_blocks_0_1.weight : Float(32, 32, 1, 1),
+      %sa1.conv_blocks_0_1.bias : Float(32),
+      %sa1.bn_blocks_0_1.weight : Float(32),
+      %sa1.bn_blocks_0_1.bias : Float(32),
+      %sa1.bn_blocks_0_1.running_mean : Float(32),
+      %sa1.bn_blocks_0_1.running_var : Float(32),
+      %sa1.bn_blocks_0_1.num_batches_tracked : Long(),
+      %sa1.conv_blocks_0_2.weight : Float(64, 32, 1, 1),
+      %sa1.conv_blocks_0_2.bias : Float(64),
+      %sa1.bn_blocks_0_2.weight : Float(64),
+      %sa1.bn_blocks_0_2.bias : Float(64),
+      %sa1.bn_blocks_0_2.running_mean : Float(64),
+      %sa1.bn_blocks_0_2.running_var : Float(64),
+      %sa1.bn_blocks_0_2.num_batches_tracked : Long(),
+      %sa1.conv_blocks_1_0.weight : Float(64, 6, 1, 1),
+      %sa1.conv_blocks_1_0.bias : Float(64),
+      %sa1.bn_blocks_1_0.weight : Float(64),
+      %sa1.bn_blocks_1_0.bias : Float(64),
+      %sa1.bn_blocks_1_0.running_mean : Float(64),
+      %sa1.bn_blocks_1_0.running_var : Float(64),
+      %sa1.bn_blocks_1_0.num_batches_tracked : Long(),
+      %sa1.conv_blocks_1_1.weight : Float(64, 64, 1, 1),
+      %sa1.conv_blocks_1_1.bias : Float(64),
+      %sa1.bn_blocks_1_1.weight : Float(64),
+      %sa1.bn_blocks_1_1.bias : Float(64),
+      %sa1.bn_blocks_1_1.running_mean : Float(64),
+      %sa1.bn_blocks_1_1.running_var : Float(64),
+      %sa1.bn_blocks_1_1.num_batches_tracked : Long(),
+      %sa1.conv_blocks_1_2.weight : Float(128, 64, 1, 1),
+      %sa1.conv_blocks_1_2.bias : Float(128),
+      %sa1.bn_blocks_1_2.weight : Float(128),
+      %sa1.bn_blocks_1_2.bias : Float(128),
+      %sa1.bn_blocks_1_2.running_mean : Float(128),
+      %sa1.bn_blocks_1_2.running_var : Float(128),
+      %sa1.bn_blocks_1_2.num_batches_tracked : Long(),
+      %sa1.conv_blocks_2_0.weight : Float(64, 6, 1, 1),
+      %sa1.conv_blocks_2_0.bias : Float(64),
+      %sa1.bn_blocks_2_0.weight : Float(64),
+      %sa1.bn_blocks_2_0.bias : Float(64),
+      %sa1.bn_blocks_2_0.running_mean : Float(64),
+      %sa1.bn_blocks_2_0.running_var : Float(64),
+      %sa1.bn_blocks_2_0.num_batches_tracked : Long(),
+      %sa1.conv_blocks_2_1.weight : Float(96, 64, 1, 1),
+      %sa1.conv_blocks_2_1.bias : Float(96),
+      %sa1.bn_blocks_2_1.weight : Float(96),
+      %sa1.bn_blocks_2_1.bias : Float(96),
+      %sa1.bn_blocks_2_1.running_mean : Float(96),
+      %sa1.bn_blocks_2_1.running_var : Float(96),
+      %sa1.bn_blocks_2_1.num_batches_tracked : Long(),
+      %sa1.conv_blocks_2_2.weight : Float(128, 96, 1, 1),
+      %sa1.conv_blocks_2_2.bias : Float(128),
+      %sa1.bn_blocks_2_2.weight : Float(128),
+      %sa1.bn_blocks_2_2.bias : Float(128),
+      %sa1.bn_blocks_2_2.running_mean : Float(128),
+      %sa1.bn_blocks_2_2.running_var : Float(128),
+      %sa1.bn_blocks_2_2.num_batches_tracked : Long()):
+  %64 : Float(1, 3, 1500) = onnx::Squeeze[axes=[0]](%points) # E:/code/Server223/pointNet/inference_C++/testFunction.py:321:0
+  %65 : Float(1, 1500, 3) = onnx::Transpose[perm=[0, 2, 1]](%64) # E:/code/Server223/pointNet/inference_C++/testFunction.py:209:0
+  %66 : Float(1, 1500, 3) = onnx::Transpose[perm=[0, 2, 1]](%64) # E:/code/Server223/pointNet/inference_C++/testFunction.py:210:0
+  %67 : Tensor = onnx::Shape(%65)
+  %68 : Tensor = onnx::Constant[value={0}]()
+  %69 : Long() = onnx::Gather[axis=0](%67, %68) # E:/code/Server223/pointNet/inference_C++/testFunction.py:212:0
+  %70 : Tensor = onnx::Shape(%65)
+  %71 : Tensor = onnx::Constant[value={2}]()
+  %72 : Long() = onnx::Gather[axis=0](%70, %71) # E:/code/Server223/pointNet/inference_C++/testFunction.py:212:0
+  %73 : Long() = onnx::Constant[value={1024}]()
+  %74 : Long(1, 1024) = my_ops::fps(%65, %73) # E:/code/Server223/pointNet/inference_C++/testFunction.py:217:0
+  %75 : Float(1, 1, 1024, 3) = my_ops::idx_pts(%65, %74) # E:/code/Server223/pointNet/inference_C++/testFunction.py:217:0
+  %76 : Float(1, 1024, 3) = onnx::Squeeze[axes=[0]](%75) # E:/code/Server223/pointNet/inference_C++/testFunction.py:217:0
+  %77 : Float() = onnx::Constant[value={0.1}]() # E:/code/Server223/pointNet/inference_C++/testFunction.py:222:0
+  %78 : Long() = onnx::Constant[value={32}]()
+  %79 : Long(1, 1, 1024, 32) = my_ops::query_ball_pts(%77, %78, %65, %76) # E:/code/Server223/pointNet/inference_C++/testFunction.py:222:0
+  %80 : Long(1, 1024, 32) = onnx::Squeeze[axes=[0]](%79) # E:/code/Server223/pointNet/inference_C++/testFunction.py:222:0
+  %81 : Float(1, 1, 1024, 32, 3) = my_ops::idx_pts(%65, %80) # E:/code/Server223/pointNet/inference_C++/testFunction.py:225:0
+  %82 : Float(1, 1024, 32, 3) = onnx::Squeeze[axes=[0]](%81) # E:/code/Server223/pointNet/inference_C++/testFunction.py:225:0
+  %83 : Long() = onnx::Constant[value={1024}]()
+  %84 : Long() = onnx::Constant[value={1}]()
+  %85 : Tensor = onnx::Unsqueeze[axes=[0]](%69)
+  %86 : Tensor = onnx::Unsqueeze[axes=[0]](%83)
+  %87 : Tensor = onnx::Unsqueeze[axes=[0]](%84)
+  %88 : Tensor = onnx::Unsqueeze[axes=[0]](%72)
+  %89 : Tensor = onnx::Concat[axis=0](%85, %86, %87, %88)
+  %90 : Float(1, 1024, 1, 3) = onnx::Reshape(%76, %89) # E:/code/Server223/pointNet/inference_C++/testFunction.py:226:0
+  %91 : Float(1, 1024, 32, 3) = onnx::Sub(%82, %90)
+  %92 : Float(1, 1, 1024, 32, 3) = my_ops::idx_pts(%66, %80) # E:/code/Server223/pointNet/inference_C++/testFunction.py:228:0
+  %93 : Float(1, 1024, 32, 3) = onnx::Squeeze[axes=[0]](%92) # E:/code/Server223/pointNet/inference_C++/testFunction.py:228:0
+  %94 : Float(1, 1024, 32, 6) = onnx::Concat[axis=-1](%93, %91) # E:/code/Server223/pointNet/inference_C++/testFunction.py:229:0
+  %95 : Float(1, 6, 32, 1024) = onnx::Transpose[perm=[0, 3, 2, 1]](%94) # E:/code/Server223/pointNet/inference_C++/testFunction.py:234:0
+  %96 : Float(1, 32, 32, 1024) = onnx::Conv[dilations=[1, 1], group=1, kernel_shape=[1, 1], pads=[0, 0, 0, 0], strides=[1, 1]](%95, %sa1.conv_blocks_0_0.weight, %sa1.conv_blocks_0_0.bias) # D:\python\lib\site-packages\torch\nn\modules\conv.py:346:0
+  %97 : Float(1, 32, 32, 1024) = onnx::BatchNormalization[epsilon=1.0000000000000001e-05, momentum=0.90000000000000002](%96, %sa1.bn_blocks_0_0.weight, %sa1.bn_blocks_0_0.bias, %sa1.bn_blocks_0_0.running_mean, %sa1.bn_blocks_0_0.running_var) # D:\python\lib\site-packages\torch\nn\functional.py:1923:0
+  %98 : Float(1, 32, 32, 1024) = onnx::Relu(%97) # D:\python\lib\site-packages\torch\nn\functional.py:1063:0
+  %99 : Float(1, 32, 32, 1024) = onnx::Conv[dilations=[1, 1], group=1, kernel_shape=[1, 1], pads=[0, 0, 0, 0], strides=[1, 1]](%98, %sa1.conv_blocks_0_1.weight, %sa1.conv_blocks_0_1.bias) # D:\python\lib\site-packages\torch\nn\modules\conv.py:346:0
+  %100 : Float(1, 32, 32, 1024) = onnx::BatchNormalization[epsilon=1.0000000000000001e-05, momentum=0.90000000000000002](%99, %sa1.bn_blocks_0_1.weight, %sa1.bn_blocks_0_1.bias, %sa1.bn_blocks_0_1.running_mean, %sa1.bn_blocks_0_1.running_var) # D:\python\lib\site-packages\torch\nn\functional.py:1923:0
+  %101 : Float(1, 32, 32, 1024) = onnx::Relu(%100) # D:\python\lib\site-packages\torch\nn\functional.py:1063:0
+  %102 : Float(1, 64, 32, 1024) = onnx::Conv[dilations=[1, 1], group=1, kernel_shape=[1, 1], pads=[0, 0, 0, 0], strides=[1, 1]](%101, %sa1.conv_blocks_0_2.weight, %sa1.conv_blocks_0_2.bias) # D:\python\lib\site-packages\torch\nn\modules\conv.py:346:0
+  %103 : Float(1, 64, 32, 1024) = onnx::BatchNormalization[epsilon=1.0000000000000001e-05, momentum=0.90000000000000002](%102, %sa1.bn_blocks_0_2.weight, %sa1.bn_blocks_0_2.bias, %sa1.bn_blocks_0_2.running_mean, %sa1.bn_blocks_0_2.running_var) # D:\python\lib\site-packages\torch\nn\functional.py:1923:0
+  %104 : Float(1, 64, 32, 1024) = onnx::Relu(%103) # D:\python\lib\site-packages\torch\nn\functional.py:1063:0
+  %105 : Float(1, 64, 1024) = onnx::ReduceMax[axes=[2], keepdims=0](%104) # E:/code/Server223/pointNet/inference_C++/testFunction.py:239:0
+  %106 : Float() = onnx::Constant[value={0.2}]() # E:/code/Server223/pointNet/inference_C++/testFunction.py:243:0
+  %107 : Long() = onnx::Constant[value={64}]()
+  %108 : Long(1, 1, 1024, 64) = my_ops::query_ball_pts(%106, %107, %65, %76) # E:/code/Server223/pointNet/inference_C++/testFunction.py:243:0
+  %109 : Long(1, 1024, 64) = onnx::Squeeze[axes=[0]](%108) # E:/code/Server223/pointNet/inference_C++/testFunction.py:243:0
+  %110 : Float(1, 1, 1024, 64, 3) = my_ops::idx_pts(%65, %109) # E:/code/Server223/pointNet/inference_C++/testFunction.py:245:0
+  %111 : Float(1, 1024, 64, 3) = onnx::Squeeze[axes=[0]](%110) # E:/code/Server223/pointNet/inference_C++/testFunction.py:245:0
+  %112 : Long() = onnx::Constant[value={1024}]()
+  %113 : Long() = onnx::Constant[value={1}]()
+  %114 : Tensor = onnx::Unsqueeze[axes=[0]](%69)
+  %115 : Tensor = onnx::Unsqueeze[axes=[0]](%112)
+  %116 : Tensor = onnx::Unsqueeze[axes=[0]](%113)
+  %117 : Tensor = onnx::Unsqueeze[axes=[0]](%72)
+  %118 : Tensor = onnx::Concat[axis=0](%114, %115, %116, %117)
+  %119 : Float(1, 1024, 1, 3) = onnx::Reshape(%76, %118) # E:/code/Server223/pointNet/inference_C++/testFunction.py:246:0
+  %120 : Float(1, 1024, 64, 3) = onnx::Sub(%111, %119)
+  %121 : Float(1, 1, 1024, 64, 3) = my_ops::idx_pts(%66, %109) # E:/code/Server223/pointNet/inference_C++/testFunction.py:248:0
+  %122 : Float(1, 1024, 64, 3) = onnx::Squeeze[axes=[0]](%121) # E:/code/Server223/pointNet/inference_C++/testFunction.py:248:0
+  %123 : Float(1, 1024, 64, 6) = onnx::Concat[axis=-1](%122, %120) # E:/code/Server223/pointNet/inference_C++/testFunction.py:249:0
+  %124 : Float(1, 6, 64, 1024) = onnx::Transpose[perm=[0, 3, 2, 1]](%123) # E:/code/Server223/pointNet/inference_C++/testFunction.py:251:0
+  %125 : Float(1, 64, 64, 1024) = onnx::Conv[dilations=[1, 1], group=1, kernel_shape=[1, 1], pads=[0, 0, 0, 0], strides=[1, 1]](%124, %sa1.conv_blocks_1_0.weight, %sa1.conv_blocks_1_0.bias) # D:\python\lib\site-packages\torch\nn\modules\conv.py:346:0
+  %126 : Float(1, 64, 64, 1024) = onnx::BatchNormalization[epsilon=1.0000000000000001e-05, momentum=0.90000000000000002](%125, %sa1.bn_blocks_1_0.weight, %sa1.bn_blocks_1_0.bias, %sa1.bn_blocks_1_0.running_mean, %sa1.bn_blocks_1_0.running_var) # D:\python\lib\site-packages\torch\nn\functional.py:1923:0
+  %127 : Float(1, 64, 64, 1024) = onnx::Relu(%126) # D:\python\lib\site-packages\torch\nn\functional.py:1063:0
+  %128 : Float(1, 64, 64, 1024) = onnx::Conv[dilations=[1, 1], group=1, kernel_shape=[1, 1], pads=[0, 0, 0, 0], strides=[1, 1]](%127, %sa1.conv_blocks_1_1.weight, %sa1.conv_blocks_1_1.bias) # D:\python\lib\site-packages\torch\nn\modules\conv.py:346:0
+  %129 : Float(1, 64, 64, 1024) = onnx::BatchNormalization[epsilon=1.0000000000000001e-05, momentum=0.90000000000000002](%128, %sa1.bn_blocks_1_1.weight, %sa1.bn_blocks_1_1.bias, %sa1.bn_blocks_1_1.running_mean, %sa1.bn_blocks_1_1.running_var) # D:\python\lib\site-packages\torch\nn\functional.py:1923:0
+  %130 : Float(1, 64, 64, 1024) = onnx::Relu(%129) # D:\python\lib\site-packages\torch\nn\functional.py:1063:0
+  %131 : Float(1, 128, 64, 1024) = onnx::Conv[dilations=[1, 1], group=1, kernel_shape=[1, 1], pads=[0, 0, 0, 0], strides=[1, 1]](%130, %sa1.conv_blocks_1_2.weight, %sa1.conv_blocks_1_2.bias) # D:\python\lib\site-packages\torch\nn\modules\conv.py:346:0
+  %132 : Float(1, 128, 64, 1024) = onnx::BatchNormalization[epsilon=1.0000000000000001e-05, momentum=0.90000000000000002](%131, %sa1.bn_blocks_1_2.weight, %sa1.bn_blocks_1_2.bias, %sa1.bn_blocks_1_2.running_mean, %sa1.bn_blocks_1_2.running_var) # D:\python\lib\site-packages\torch\nn\functional.py:1923:0
+  %133 : Float(1, 128, 64, 1024) = onnx::Relu(%132) # D:\python\lib\site-packages\torch\nn\functional.py:1063:0
+  %134 : Float(1, 128, 1024) = onnx::ReduceMax[axes=[2], keepdims=0](%133) # E:/code/Server223/pointNet/inference_C++/testFunction.py:255:0
+  %135 : Float() = onnx::Constant[value={0.4}]() # E:/code/Server223/pointNet/inference_C++/testFunction.py:259:0
+  %136 : Long() = onnx::Constant[value={128}]()
+  %137 : Long(1, 1, 1024, 128) = my_ops::query_ball_pts(%135, %136, %65, %76) # E:/code/Server223/pointNet/inference_C++/testFunction.py:259:0
+  %138 : Long(1, 1024, 128) = onnx::Squeeze[axes=[0]](%137) # E:/code/Server223/pointNet/inference_C++/testFunction.py:259:0
+  %139 : Float(1, 1, 1024, 128, 3) = my_ops::idx_pts(%65, %138) # E:/code/Server223/pointNet/inference_C++/testFunction.py:261:0
+  %140 : Float(1, 1024, 128, 3) = onnx::Squeeze[axes=[0]](%139) # E:/code/Server223/pointNet/inference_C++/testFunction.py:261:0
+  %141 : Long() = onnx::Constant[value={1024}]()
+  %142 : Long() = onnx::Constant[value={1}]()
+  %143 : Tensor = onnx::Unsqueeze[axes=[0]](%69)
+  %144 : Tensor = onnx::Unsqueeze[axes=[0]](%141)
+  %145 : Tensor = onnx::Unsqueeze[axes=[0]](%142)
+  %146 : Tensor = onnx::Unsqueeze[axes=[0]](%72)
+  %147 : Tensor = onnx::Concat[axis=0](%143, %144, %145, %146)
+  %148 : Float(1, 1024, 1, 3) = onnx::Reshape(%76, %147) # E:/code/Server223/pointNet/inference_C++/testFunction.py:262:0
+  %149 : Float(1, 1024, 128, 3) = onnx::Sub(%140, %148)
+  %150 : Float(1, 1, 1024, 128, 3) = my_ops::idx_pts(%66, %138) # E:/code/Server223/pointNet/inference_C++/testFunction.py:264:0
+  %151 : Float(1, 1024, 128, 3) = onnx::Squeeze[axes=[0]](%150) # E:/code/Server223/pointNet/inference_C++/testFunction.py:264:0
+  %152 : Float(1, 1024, 128, 6) = onnx::Concat[axis=-1](%151, %149) # E:/code/Server223/pointNet/inference_C++/testFunction.py:265:0
+  %153 : Float(1, 6, 128, 1024) = onnx::Transpose[perm=[0, 3, 2, 1]](%152) # E:/code/Server223/pointNet/inference_C++/testFunction.py:267:0
+  %154 : Float(1, 64, 128, 1024) = onnx::Conv[dilations=[1, 1], group=1, kernel_shape=[1, 1], pads=[0, 0, 0, 0], strides=[1, 1]](%153, %sa1.conv_blocks_2_0.weight, %sa1.conv_blocks_2_0.bias) # D:\python\lib\site-packages\torch\nn\modules\conv.py:346:0
+  %155 : Float(1, 64, 128, 1024) = onnx::BatchNormalization[epsilon=1.0000000000000001e-05, momentum=0.90000000000000002](%154, %sa1.bn_blocks_2_0.weight, %sa1.bn_blocks_2_0.bias, %sa1.bn_blocks_2_0.running_mean, %sa1.bn_blocks_2_0.running_var) # D:\python\lib\site-packages\torch\nn\functional.py:1923:0
+  %156 : Float(1, 64, 128, 1024) = onnx::Relu(%155) # D:\python\lib\site-packages\torch\nn\functional.py:1063:0
+  %157 : Float(1, 96, 128, 1024) = onnx::Conv[dilations=[1, 1], group=1, kernel_shape=[1, 1], pads=[0, 0, 0, 0], strides=[1, 1]](%156, %sa1.conv_blocks_2_1.weight, %sa1.conv_blocks_2_1.bias) # D:\python\lib\site-packages\torch\nn\modules\conv.py:346:0
+  %158 : Float(1, 96, 128, 1024) = onnx::BatchNormalization[epsilon=1.0000000000000001e-05, momentum=0.90000000000000002](%157, %sa1.bn_blocks_2_1.weight, %sa1.bn_blocks_2_1.bias, %sa1.bn_blocks_2_1.running_mean, %sa1.bn_blocks_2_1.running_var) # D:\python\lib\site-packages\torch\nn\functional.py:1923:0
+  %159 : Float(1, 96, 128, 1024) = onnx::Relu(%158) # D:\python\lib\site-packages\torch\nn\functional.py:1063:0
+  %160 : Float(1, 128, 128, 1024) = onnx::Conv[dilations=[1, 1], group=1, kernel_shape=[1, 1], pads=[0, 0, 0, 0], strides=[1, 1]](%159, %sa1.conv_blocks_2_2.weight, %sa1.conv_blocks_2_2.bias) # D:\python\lib\site-packages\torch\nn\modules\conv.py:346:0
+  %161 : Float(1, 128, 128, 1024) = onnx::BatchNormalization[epsilon=1.0000000000000001e-05, momentum=0.90000000000000002](%160, %sa1.bn_blocks_2_2.weight, %sa1.bn_blocks_2_2.bias, %sa1.bn_blocks_2_2.running_mean, %sa1.bn_blocks_2_2.running_var) # D:\python\lib\site-packages\torch\nn\functional.py:1923:0
+  %162 : Float(1, 128, 128, 1024) = onnx::Relu(%161) # D:\python\lib\site-packages\torch\nn\functional.py:1063:0
+  %163 : Float(1, 128, 1024) = onnx::ReduceMax[axes=[2], keepdims=0](%162) # E:/code/Server223/pointNet/inference_C++/testFunction.py:271:0
+  %res : Float(1, 320, 1024) = onnx::Concat[axis=1](%105, %134, %163) # E:/code/Server223/pointNet/inference_C++/testFunction.py:275:0
+  return (%res)
