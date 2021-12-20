@@ -110,6 +110,7 @@ bool PreProcess(std::vector<std::vector<float> >& points, std::vector<int>& ids)
     points.swap(newPoints);
 }
 
+
 class ArgMaxLayer CV_FINAL : public cv::dnn::Layer
 {
 public:
@@ -278,7 +279,7 @@ class IndexPtsLayer CV_FINAL : public cv::dnn::Layer
 public:
     IndexPtsLayer(const cv::dnn::LayerParams& params) : Layer(params)
     {
-
+        channel = blobs[0].at<int>(0);
     }
 
     static cv::Ptr<cv::dnn::Layer> create(cv::dnn::LayerParams& params)
@@ -301,7 +302,7 @@ public:
         for (int i = 1; i < idx.size(); ++i) {
             outShape.push_back(idx[i]);
         }
-        outShape.push_back(3);  // input[2]
+        outShape.push_back(channel);  // input[2]
         outputs.assign(1, outShape);
         return false;
     }
@@ -332,6 +333,8 @@ public:
 
         // TODO Implement the index points
     }
+private:
+    int channel;
 };
 
 
@@ -402,8 +405,125 @@ private:
 };
 
 
+class SubCenterLayer CV_FINAL : public cv::dnn::Layer
+{
+public:
+    SubCenterLayer(const cv::dnn::LayerParams& params) : Layer(params)
+    {
+        
+    }
+
+    static cv::Ptr<cv::dnn::Layer> create(cv::dnn::LayerParams& params)
+    {
+        return cv::Ptr<cv::dnn::Layer>(new SubCenterLayer(params));
+    }
+
+    virtual bool getMemoryShapes(const std::vector<std::vector<int> >& inputs,
+        const int requiredOutputs,
+        std::vector<std::vector<int> >& outputs,
+        std::vector<std::vector<int> >& internals) const CV_OVERRIDE
+    {
+        std::vector<int> grouped_xyz = inputs[0];
+        std::vector<int> new_xyz = inputs[1];
+
+        outputs.assign(1, grouped_xyz);
+        return false;
+    }
+
+    virtual void forward(cv::InputArrayOfArrays inputs_arr,
+        cv::OutputArrayOfArrays outputs_arr,
+        cv::OutputArrayOfArrays internals_arr) CV_OVERRIDE
+    {
+        if (inputs_arr.depth() == CV_16S)
+        {
+            forward_fallback(inputs_arr, outputs_arr, internals_arr);
+            return;
+        }
+        std::vector<cv::Mat> inputs, outputs;
+        inputs_arr.getMatVector(inputs);
+        outputs_arr.getMatVector(outputs);
+
+        cv::Mat& grouped_xyz = inputs[0];   // B * S* N * 3
+        cv::Mat& new_xyz = inputs[1];   // B * S * 3
+        cv::Mat& out = outputs[0];
+        float* outData = (float*)out.data;
+
+        int dim = grouped_xyz.dims;
+        std::vector<int> groupedShape;
+        for (int i = 0; i < dim; i++) {
+            groupedShape.push_back(grouped_xyz.total(i, i + 1));
+        }
+
+        int new_dim = new_xyz.dims;
+        std::vector<int> newShape;
+        for (int i = 0; i < new_dim; i++) {
+            newShape.push_back(new_xyz.total(i, i + 1));
+        }
+
+        // assert dim and shape
+        assert(dim == 4 && new_dim == 3);
+        assert(groupedShape[0] == newShape[0] && groupedShape[1] == newShape[1] && groupedShape[3] == newShape[2]);
+
+        // get shape, TODO: optimize like numpy broadcast, may be can use eigen3
+        int B = groupedShape[0];
+        int N = groupedShape[1];
+        int S = groupedShape[2];
+        int C = groupedShape[3];
+
+        // deal data
+        int i = 0;
+        for (int b = 0; b < B; ++b) {
+            for (int n = 0; n < N; ++n) {
+                for (int s = 0; s < S; ++s) {
+                    for (int c = 0; c < C; ++c) {
+                        outData[i++] = grouped_xyz.ptr<float>(b, n, s)[c] - new_xyz.ptr<float>(b, n)[c];
+                    }
+                }
+            }
+        }
+    }
+};
+
+
+void printMat(cv::Mat src) {
+    int dim = src.dims;
+    std::vector<int> shape;
+    for (int i = 0; i < dim; i++) {
+        shape.push_back(src.total(i, i + 1));
+    }
+
+    if (3 == dim) {
+        for (int i = 0; i < shape[0]; ++i) {
+            for (int j = 0; j < shape[1]; ++j){
+                for (int k = 0; k < shape[2]; ++k) {
+                    std::cout << src.ptr<float>(i, j)[k] << " ";
+                }
+                std::cout << "\n";
+            }
+            std::cout << "\n";
+        }
+    }
+    else if (4 == dim) {
+        for (int i = 0; i < shape[0]; ++i) {
+            for (int j = 0; j < shape[1]; ++j) {
+                for (int k = 0; k < shape[2]; ++k) {
+                    for (int c = 0; c < shape[3]; ++c) {
+                        std::cout << src.ptr<float>(i, j, k)[c] << " ";
+                    }
+                    std::cout << "\n";
+                }
+                std::cout << "\n";
+            }
+            std::cout << "\n";
+        }
+    }
+    
+}
+
+
 int main(int argc, char* argv[])
 {
+    
     //int testAxis = 2;
     //std::vector<float> testData;
     //for (int i = 0; i < 15; ++i) {
@@ -466,7 +586,7 @@ int main(int argc, char* argv[])
     }       
 
     std::vector<int> newShape{1, 1, datas.rows, datas.cols};
-     datas = datas.reshape(0, newShape);    // 1 * 1 * 3 * N
+    datas = datas.reshape(0, newShape);    // 1 * 1 * 3 * N
 
     //// test
     //int size[3] = { 1, 2, 3 };
@@ -484,6 +604,7 @@ int main(int argc, char* argv[])
     CV_DNN_REGISTER_LAYER_CLASS(fps, FPSLayer);
     CV_DNN_REGISTER_LAYER_CLASS(idx_pts, IndexPtsLayer);
     CV_DNN_REGISTER_LAYER_CLASS(query_ball_pts, QueryBallPtsLayer);
+    CV_DNN_REGISTER_LAYER_CLASS(sub_center, SubCenterLayer);
     cv::dnn::Net net = cv::dnn::readNetFromONNX(modelPath);
 
     net.setInput(datas, "points");

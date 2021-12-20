@@ -80,7 +80,7 @@ torch::Tensor farthest_point_sampling(torch::Tensor xyz, long long npoint) {
 //    batch_indices = torch.arange(B, dtype = torch.long, device = device).view(view_shape).repeat(repeat_shape)
 //    new_points = points[batch_indices, idx, :]
 //    return new_points
-torch::Tensor index_points(torch::Tensor points, torch::Tensor idx) {
+torch::Tensor index_points(torch::Tensor points, torch::Tensor idx, long long channels) {
     /*
     Input:
         points: input points data, [B, N, C]
@@ -205,10 +205,40 @@ torch::Tensor sub_center(torch::Tensor grouped_xyz, torch::Tensor new_xyz, long 
 }
 
 
+torch::Tensor get_cate(long long nCate, long long B, long long N) {
+    torch::Tensor cate = torch::ones({ B, nCate, N });
+    cate = cate.unsqueeze(0);
+    return cate.clone();
+}
+
+
+at::TensorList sample_and_group_all(torch::Tensor xyz, torch::Tensor points) {
+    at::Device device = xyz.device();
+    int B = xyz.size(0);
+    int N = xyz.size(1);
+    int C = xyz.size(2);
+
+    torch::Tensor new_xyz = torch::zeros({ B, 1, C }, at::device(device));
+    torch::Tensor grouped_xyz = xyz.view({ B, 1, N, C });
+    std::vector<torch::Tensor> tempVec;
+    tempVec.push_back(grouped_xyz);
+    tempVec.push_back(points.view({ B, 1, N, -1 }));
+    at::TensorList tempList(tempVec);
+    torch::Tensor new_points = torch::cat(tempList, -1);   // 可提前一步返回,后续再拼接
+
+    tempVec.clear();
+    tempVec.push_back(new_xyz);
+    tempVec.push_back(new_points);
+    return tempVec;
+}
+
+
 // static auto registry = torch::RegisterOperators("my_ops::fps", &farthest_point_sampling);  // torch.__version__: 1.5.0
-//static auto registry = torch::RegisterOperators("my_ops::idx_pts", &index_points);
-//static auto registry = torch::RegisterOperators("my_ops::query_ball_pts", &query_ball_point);
-static auto registry = torch::RegisterOperators("my_ops::sub_center", &sub_center);
+// static auto registry = torch::RegisterOperators("my_ops::idx_pts", &index_points);
+// static auto registry = torch::RegisterOperators("my_ops::query_ball_pts", &query_ball_point);
+// static auto registry = torch::RegisterOperators("my_ops::sub_center", &sub_center);
+//static auto registry = torch::RegisterOperators("my_ops::sample_and_group_all", &sample_and_group_all);
+static auto registry = torch::RegisterOperators("my_ops::get_cate", &get_cate);
 
 //// torch.__version__ >= 1.6.0  torch/include/torch/library.h
 //TORCH_LIBRARY(my_ops, m) {
