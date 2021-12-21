@@ -158,15 +158,14 @@ torch::Tensor index_points(torch::Tensor points, torch::Tensor idx, long long ch
 //    # print("N: ", N)
 //    group_idx = torch.where(group_idx == N, group_first, group_idx)
 //    return group_idx
-torch::Tensor square_distance(torch::Tensor src, torch::Tensor dst) {
+torch::Tensor square_distance(torch::Tensor src, torch::Tensor dst, long long N) {
     int B = src.size(0);
-    int N = src.size(1);
 
     int M = dst.size(1);
     torch::Tensor dist = -2 * torch::matmul(src, dst.permute({ 0, 2, 1 }));
     dist += torch::sum(src * src, -1).view({ B, N, 1 });
     dist += torch::sum(dst * dst, -1).view({ B, 1, M });
-
+    dist = dist.unsqueeze(0);
     return dist.clone();
 }
 
@@ -181,7 +180,7 @@ torch::Tensor query_ball_point(torch::Tensor radius, long long nsample, torch::T
     float refRadius = r * r;
 
     torch::Tensor group_idx = torch::arange(N, at::device(device).dtype(at::ScalarType::Long)).view({ 1, 1, N }).repeat({ B, S, 1 });
-    torch::Tensor sqrdists = square_distance(new_xyz, xyz);
+    torch::Tensor sqrdists = square_distance(new_xyz, xyz, new_xyz.size(1)).squeeze(0);
     //std::cout << "sqrdists: " << sqrdists << std::endl;
     
     torch::Tensor temp = torch::full({ B, S, N }, N, dtype(at::ScalarType::Long));
@@ -237,8 +236,9 @@ at::TensorList sample_and_group_all(torch::Tensor xyz, torch::Tensor points) {
 // static auto registry = torch::RegisterOperators("my_ops::idx_pts", &index_points);
 // static auto registry = torch::RegisterOperators("my_ops::query_ball_pts", &query_ball_point);
 // static auto registry = torch::RegisterOperators("my_ops::sub_center", &sub_center);
-//static auto registry = torch::RegisterOperators("my_ops::sample_and_group_all", &sample_and_group_all);
-static auto registry = torch::RegisterOperators("my_ops::get_cate", &get_cate);
+// static auto registry = torch::RegisterOperators("my_ops::sample_and_group_all", &sample_and_group_all);
+// static auto registry = torch::RegisterOperators("my_ops::get_cate", &get_cate); 
+static auto registry = torch::RegisterOperators("my_ops::dist", &square_distance);
 
 //// torch.__version__ >= 1.6.0  torch/include/torch/library.h
 //TORCH_LIBRARY(my_ops, m) {
