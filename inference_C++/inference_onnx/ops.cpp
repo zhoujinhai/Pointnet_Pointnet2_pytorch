@@ -158,9 +158,9 @@ torch::Tensor index_points(torch::Tensor points, torch::Tensor idx, long long ch
 //    # print("N: ", N)
 //    group_idx = torch.where(group_idx == N, group_first, group_idx)
 //    return group_idx
-torch::Tensor square_distance(torch::Tensor src, torch::Tensor dst, long long N) {
+torch::Tensor square_distance(torch::Tensor src, torch::Tensor dst) {
     int B = src.size(0);
-
+    int N = src.size(1);
     int M = dst.size(1);
     torch::Tensor dist = -2 * torch::matmul(src, dst.permute({ 0, 2, 1 }));
     dist += torch::sum(src * src, -1).view({ B, N, 1 });
@@ -180,7 +180,7 @@ torch::Tensor query_ball_point(torch::Tensor radius, long long nsample, torch::T
     float refRadius = r * r;
 
     torch::Tensor group_idx = torch::arange(N, at::device(device).dtype(at::ScalarType::Long)).view({ 1, 1, N }).repeat({ B, S, 1 });
-    torch::Tensor sqrdists = square_distance(new_xyz, xyz, new_xyz.size(1)).squeeze(0);
+    torch::Tensor sqrdists = square_distance(new_xyz, xyz).squeeze(0);
     //std::cout << "sqrdists: " << sqrdists << std::endl;
     
     torch::Tensor temp = torch::full({ B, S, N }, N, dtype(at::ScalarType::Long));
@@ -198,16 +198,39 @@ torch::Tensor query_ball_point(torch::Tensor radius, long long nsample, torch::T
 }
 
 
-torch::Tensor sub_center(torch::Tensor grouped_xyz, torch::Tensor new_xyz, long long B, long long S, long long C) {
-    grouped_xyz -= new_xyz.view({ B, S, 1, C });
+torch::Tensor sub_center(torch::Tensor grouped_xyz, torch::Tensor new_xyz) {
+    grouped_xyz -= new_xyz.view({ new_xyz.size(0), new_xyz.size(1), 1, new_xyz.size(2) });
     return grouped_xyz;
 }
 
 
-torch::Tensor get_cate(long long nCate, long long B, long long N) {
-    torch::Tensor cate = torch::ones({ B, nCate, N });
-    cate = cate.unsqueeze(0);
-    return cate.clone();
+torch::Tensor get_cate(torch::Tensor xyz, torch::Tensor points, long long nCate, long long C) {
+    torch::Tensor cate = torch::ones({ xyz.size(0), nCate, xyz.size(2) });
+    torch::Tensor res = torch::cat({ cate, xyz, points }, 1);
+    res = res.unsqueeze(0);
+    return res.clone();
+}
+
+torch::Tensor propagation_data_process(torch::Tensor xyz1, torch::Tensor xyz2, torch::Tensor points1, torch::Tensor points2) {
+    torch::Tensor dists = square_distance(xyz1, xyz2).squeeze(0);
+    std::tuple<torch::Tensor, torch::Tensor> sorted = dists.sort(2);
+    dists = std::get<0>(sorted);
+    torch::Tensor idx = std::get<1>(sorted);
+    
+    dists = dists.index({ "...", torch::indexing::Slice(0, 3) });
+    idx = idx.index({ "...", torch::indexing::Slice(0, 3) });
+
+    torch::Tensor dist_recip = 1.0 / (dists + 1e-8);
+    torch::Tensor norm = torch::sum(dist_recip, 2, true);
+    torch::Tensor weight = dist_recip / norm;
+    
+    torch::Tensor interpolated_points = torch::sum(index_points(points2, idx, points2.size(2)).squeeze(0) * weight.view({ xyz1.size(0), xyz1.size(1), 3, 1 }), 2);
+
+    points1 = points1.permute({ 0, 2, 1 });
+    torch::Tensor new_points = torch::cat({ points1, interpolated_points }, -1);
+
+    new_points = new_points.unsqueeze(0);
+    return new_points.clone();
 }
 
 
@@ -235,10 +258,11 @@ at::TensorList sample_and_group_all(torch::Tensor xyz, torch::Tensor points) {
 // static auto registry = torch::RegisterOperators("my_ops::fps", &farthest_point_sampling);  // torch.__version__: 1.5.0
 // static auto registry = torch::RegisterOperators("my_ops::idx_pts", &index_points);
 // static auto registry = torch::RegisterOperators("my_ops::query_ball_pts", &query_ball_point);
-// static auto registry = torch::RegisterOperators("my_ops::sub_center", &sub_center);
+ static auto registry = torch::RegisterOperators("my_ops::sub_center", &sub_center);
 // static auto registry = torch::RegisterOperators("my_ops::sample_and_group_all", &sample_and_group_all);
-// static auto registry = torch::RegisterOperators("my_ops::get_cate", &get_cate); 
-static auto registry = torch::RegisterOperators("my_ops::dist", &square_distance);
+ //static auto registry = torch::RegisterOperators("my_ops::get_cate", &get_cate); 
+// static auto registry = torch::RegisterOperators("my_ops::dist", &square_distance);
+//static auto registry = torch::RegisterOperators("my_ops::propagatedata", &propagation_data_process);
 
 //// torch.__version__ >= 1.6.0  torch/include/torch/library.h
 //TORCH_LIBRARY(my_ops, m) {

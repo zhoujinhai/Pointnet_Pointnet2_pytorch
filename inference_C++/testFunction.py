@@ -163,16 +163,17 @@ def farthest_point_sample(xyz, npoint):
     return centroids
 
 
-def sub_center(grouped_xyz, new_xyz, B, S, C):
+def sub_center(grouped_xyz, new_xyz):
     """
     pytorch broadcast operator
     :param grouped_xyz:  B * S * N * C
-    :param new_xyz: B * S * 3
+    :param new_xyz: B * S * C
     :param B:
     :param S:
     :param C:
     :return: B * S * N * C
     """
+    B, S, C = new_xyz.shape
     grouped_xyz -= new_xyz.view(B, S, 1, C)
     return grouped_xyz
 
@@ -266,7 +267,7 @@ class PointNetSetAbstractionMsg1(nn.Module):
         # grouped_xyz = index_points(xyz, group_idx)
         grouped_xyz = torch.ops.my_ops.idx_pts(xyz, group_idx, xyz.shape[-1]).squeeze(0)
         # grouped_xyz = sub_center(grouped_xyz, new_xyz, B, S, C)  # grouped_xyz -= new_xyz.view(B, S, 1, C)
-        grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz, B, S, C)
+        grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz)  # , B, S, C
         # grouped_points = index_points(points, group_idx)
         grouped_points = torch.ops.my_ops.idx_pts(points, group_idx, points.shape[-1]).squeeze(0)
         grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
@@ -282,7 +283,7 @@ class PointNetSetAbstractionMsg1(nn.Module):
         group_idx = torch.ops.my_ops.query_ball_pts(torch.tensor(self.radius_1), self.nsample_1, xyz, new_xyz).squeeze(0)
         # grouped_xyz = index_points(xyz, group_idx)
         grouped_xyz = torch.ops.my_ops.idx_pts(xyz, group_idx, xyz.shape[-1]).squeeze(0)
-        grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz, B, S, C)  # grouped_xyz -= new_xyz.view(B, S, 1, C)
+        grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz)  # grouped_xyz -= new_xyz.view(B, S, 1, C)
         # grouped_points = index_points(points, group_idx)
         grouped_points = torch.ops.my_ops.idx_pts(points, group_idx, points.shape[-1]).squeeze(0)
         grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
@@ -298,7 +299,7 @@ class PointNetSetAbstractionMsg1(nn.Module):
         group_idx = torch.ops.my_ops.query_ball_pts(torch.tensor(self.radius_2), self.nsample_2, xyz, new_xyz).squeeze(0)
         # grouped_xyz = index_points(xyz, group_idx)
         grouped_xyz = torch.ops.my_ops.idx_pts(xyz, group_idx, xyz.shape[-1]).squeeze(0)
-        grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz, B, S, C)  # grouped_xyz -= new_xyz.view(B, S, 1, C)
+        grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz)  # grouped_xyz -= new_xyz.view(B, S, 1, C)
         # grouped_points = index_points(points, group_idx)
         grouped_points = torch.ops.my_ops.idx_pts(points, group_idx, points.shape[-1]).squeeze(0)
         grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
@@ -364,7 +365,7 @@ class PointNetSetAbstractionMsg2(nn.Module):
         # grouped_xyz = index_points(xyz, group_idx)
         grouped_xyz = torch.ops.my_ops.idx_pts(xyz, group_idx, xyz.shape[-1]).squeeze(0)
         # grouped_xyz -= new_xyz.view(B, S, 1, C)
-        grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz, B, S, C)
+        grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz)
         # grouped_points = index_points(points, group_idx)
         grouped_points = torch.ops.my_ops.idx_pts(points, group_idx, points.shape[-1]).squeeze(0)   # last dim is 320 not 3
         grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
@@ -381,7 +382,7 @@ class PointNetSetAbstractionMsg2(nn.Module):
         # grouped_xyz = index_points(xyz, group_idx)
         grouped_xyz = torch.ops.my_ops.idx_pts(xyz, group_idx, xyz.shape[-1]).squeeze(0)
         # grouped_xyz -= new_xyz.view(B, S, 1, C)
-        grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz, B, S, C)
+        grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz)
         # grouped_points = index_points(points, group_idx)
         grouped_points = torch.ops.my_ops.idx_pts(points, group_idx, points.shape[-1]).squeeze(0)  # last dim is 320 not 3
         grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
@@ -510,21 +511,31 @@ class PointNetFeaturePropagation1(nn.Module):
         B, N, C = xyz1.shape
         _, S, _ = xyz2.shape
         # print("type S: ", type(S), S, isinstance(S, int), torch.is_tensor(S))
-        dists = torch.ops.my_ops.dist(xyz1, xyz2, xyz1.shape[1]).squeeze(0)  # square_distance(xyz1, xyz2)
-        print("dists shape: ", xyz1.shape, xyz2.shape, dists.shape)
+        # dists = torch.ops.my_ops.dist(xyz1, xyz2, xyz1.shape[1]).squeeze(0)  # square_distance(xyz1, xyz2)
+        # # print("dists shape: ", xyz1.shape, xyz2.shape, dists.shape)
+        #
+        # dists, idx = dists.sort(dim=2)
+        # dists = dists[:, :, :3]
+        # idx = idx[:, :, :3]  # [B, N, 3]
 
-        dists, idx = dists.sort(dim=2)
-        dists = dists[:, :, :3]
-        idx = idx[:, :, :3]  # [B, N, 3]
-
-        dist_recip = 1.0 / (dists + 1e-8)
-        norm = torch.sum(dist_recip, dim=2, keepdim=True)
-        weight = dist_recip / norm
-        # interpolated_points = torch.sum(index_points(points2, idx) * weight.view(B, N, 3, 1), dim=2)
-        interpolated_points = torch.sum(torch.ops.my_ops.idx_pts(points2, idx, points2.shape[-1]).squeeze(0) * weight.view(B, N, 3, 1), dim=2)
-
-        points1 = points1.permute(0, 2, 1)
-        new_points = torch.cat([points1, interpolated_points], dim=-1)
+        # dists = torch.ops.my_ops.dist(xyz1, xyz2)  # , xyz1.shape[1]
+        # dists, idx = dists.sort(dim=3)   # for cv not support 3D output
+        # dists = dists.squeeze(0)
+        # idx = idx.squeeze(0)
+        # dists = dists[:, :, :3]
+        # idx = idx[:, :, :3]  # [B, N, 3]
+        #
+        # dist_recip = 1.0 / (dists + 1e-8)
+        # norm = torch.sum(dist_recip, dim=2, keepdim=True)
+        # weight = dist_recip / norm
+        # # interpolated_points = torch.sum(index_points(points2, idx) * weight.view(B, N, 3, 1), dim=2)
+        # interpolated_points = torch.sum(torch.ops.my_ops.idx_pts(points2, idx, points2.shape[-1]).squeeze(0) * weight.view(B, N, 3, 1), dim=2)
+        # print("interpolated_points: ", interpolated_points.shape)
+        # points1 = points1.permute(0, 2, 1)
+        # new_points = torch.cat([points1, interpolated_points], dim=-1)
+        # print("new_points: ", new_points.shape)
+        # print("xyz1, xyz2, points1, points2: ", xyz1.shape, xyz2.shape, points1.shape, points2.shape)
+        new_points = torch.ops.my_ops.propagatedata(xyz1, xyz2, points1, points2).squeeze(0)
 
         new_points = new_points.permute(0, 2, 1)
         # for conv, bn in zip(self.mlp_convs, self.mlp_bns):
@@ -555,17 +566,21 @@ class Net(nn.Module):
 
 
 class TestNet(nn.Module):
-    def __init__(self):
+    def __init__(self, num_classes=2, normal_channel=False, num_categories=1):
         super(TestNet, self).__init__()
-        self.num_categories = 1
+        self.num_categories = num_categories
         self.sa1 = PointNetSetAbstractionMsg1(1024, [0.1, 0.2, 0.4], [32, 64, 128], 3, [[32, 32, 64], [64, 64, 128], [64, 96, 128]])
         self.sa2 = PointNetSetAbstractionMsg2(256, [0.4, 0.8], [64, 128], 128 + 128 + 64, [[128, 128, 256], [128, 196, 256]])
         self.sa3 = PointNetSetAbstraction1(npoint=256, radius=5.0, nsample=256, in_channel=512 + 3, mlp=[256, 512, 1024], group_all=True)
         self.fp3 = PointNetFeaturePropagation0(in_channel=1536, mlp=[256, 256])
         self.fp2 = PointNetFeaturePropagation1(in_channel=576, mlp=[256, 128])
         self.fp1 = PointNetFeaturePropagation1(in_channel=134 + self.num_categories, mlp=[128, 128])
+        self.conv1 = nn.Conv1d(128, 128, 1)
+        self.bn1 = nn.BatchNorm1d(128)
+        self.drop1 = nn.Dropout(0.5)
+        self.conv2 = nn.Conv1d(128, num_classes, 1)
 
-    def forward(self, xyz, cate):
+    def forward(self, xyz):
         # # xyz==> (B, N, C)
         # xyz = xyz.permute(0, 1, 3, 2)
         # xyz = xyz.squeeze(0)
@@ -581,7 +596,6 @@ class TestNet(nn.Module):
         # return grouped_xyz
 
         xyz = xyz.squeeze(0)    # xyz is B * C * N
-        cate = cate.squeeze(0)  # cate is B * n * N
         B, C, N = xyz.shape
         l0_points = xyz
         l0_xyz = xyz
@@ -595,12 +609,19 @@ class TestNet(nn.Module):
         # # cls_label_one_hot = get_cate(xyz, self.num_categories)
         # cls_label_one_hot = torch.ones(B, self.num_categories, N)  # torch.ones((1, 1, 1)).view(B, self.num_categories, 1).repeat(1, 1, N)
         # print("**** cls_label_one_hot: ", cls_label_one_hot.shape)
-        # cls_label_one_hot = torch.ops.my_ops.get_cate(self.num_categories, B, N).squeeze(0)
-        # print("cls_label_one_hot: ", cls_label_one_hot.shape)
+        cat_data_cate = torch.ops.my_ops.get_cate(l0_xyz, l0_points, self.num_categories, C).squeeze(0)
+        # print("cat_data_cate: ", cat_data_cate.shape)
         # l0_points = self.fp1(l0_xyz, l1_xyz, torch.cat([cls_label_one_hot, l0_xyz, l0_points], 1), l1_points)
-        l0_points = self.fp1(l0_xyz, l1_xyz, torch.cat([cate, l0_xyz, l0_points], 1), l1_points)
+        l0_points = self.fp1(l0_xyz, l1_xyz, cat_data_cate, l1_points)
 
-        return l0_points
+        # FC layers
+        feat = F.relu(self.bn1(self.conv1(l0_points)))
+        x = self.drop1(feat)
+        x = self.conv2(x)
+        x = F.log_softmax(x, dim=1)
+        x = x.permute(0, 2, 1)
+
+        return x
 
 
 # class TestNet(nn.Module):
@@ -748,9 +769,6 @@ class SubCenterLayer(object):
     def __init__(self, params, blobs):
         print("SubCenterLayer params: ", params)
         print("SubCenterLayer blobs: ", blobs)
-        self.B = int(blobs[0][0][0])
-        self.S = int(blobs[1][0][0])
-        self.C = int(blobs[2][0][0])
         # print("B, S, C", self.B, self.S, self.C)
         self.out_dim = None
 
@@ -836,8 +854,8 @@ class TopKLayer(object):
         data = inputs[0]
         # print("idx: ", idx)
         print("TopKLayer data : ", data.shape, self.out_dim)
-        idx = data.argsort(axis=2)
-        data.sort(axis=2)
+        idx = data.argsort(axis=3).astype(np.float32)
+        data.sort(axis=3)
         print("TopKLayer res: ", data.shape, idx.shape)
 
         return [data, idx]
@@ -848,7 +866,7 @@ class DistLayer(object):
         print("DistLayer params: ", params)
         print("DistLayer blobs: ", blobs)
         # print("B, S, C", self.B, self.S, self.C)
-        self.N = int(blobs[0][0][0])
+        # self.N = int(blobs[0][0][0])
         self.out_dim = None
 
     # Our layer receives one inputs. We need to find the max
@@ -858,7 +876,7 @@ class DistLayer(object):
         out_dim = []
         out_dim.append(1)
         out_dim.append(src_dim[0])
-        out_dim.append(self.N)
+        out_dim.append(src_dim[1])
         out_dim.append(dst_dim[1])
 
         self.out_dim = out_dim
@@ -867,9 +885,74 @@ class DistLayer(object):
 
     def forward(self, inputs):
         print("DistLayer inputs size: ", len(inputs))
-        res = np.ones(self.out_dim)
+        res = np.ones(self.out_dim).astype(np.float32)
 
         print("DistLayer res: ", res.shape, res.shape)
+
+        return [res]
+
+
+class GetCateLayer(object):
+    def __init__(self, params, blobs):
+        print("GetCateLayer params: ", params)
+        print("GetCateLayer blobs: ", blobs)
+        # print("B, S, C", self.B, self.S, self.C)
+        n_cls = int(blobs[0][0][0])
+        C = int(blobs[1][0][0])
+        self.C = n_cls + 2 * C
+        self.out_dim = None
+
+    # Our layer receives one inputs. We need to find the max
+    def getMemoryShapes(self, inputs):
+        print("GetCateLayer inputs: ", inputs)
+        src_dim, dst_dim = inputs
+        out_dim = []
+        out_dim.append(1)
+        out_dim.append(src_dim[0])
+        out_dim.append(self.C)
+        out_dim.append(src_dim[2])
+
+        self.out_dim = out_dim
+        print("GetCateLayer out_dim: ", self.out_dim)
+        return [out_dim]
+
+    def forward(self, inputs):
+        print("GetCateLayer inputs size: ", len(inputs))
+        # TODO implement concat (cate, xyz, points)
+        res = np.ones(self.out_dim).astype(np.float32)
+
+        print("GetCateLayer res: ", res.shape, res.shape)
+
+        return [res]
+
+
+class PropagateDataLayer(object):
+    def __init__(self, params, blobs):
+        print("PropagateDataLayer params: ", params)
+        print("PropagateDataLayer blobs: ", blobs)
+        # print("B, S, C", self.B, self.S, self.C)
+        self.out_dim = None
+
+    # Our layer receives one inputs. We need to find the max
+    def getMemoryShapes(self, inputs):
+        print("PropagateDataLayer inputs: ", inputs)
+        xyz1, xyz2, points1, points2 = inputs
+        out_channel = int(points1[1] + points2[2])
+        out_dim = []
+        out_dim.append(1)
+        out_dim.append(xyz1[0])
+        out_dim.append(xyz1[1])
+        out_dim.append(out_channel)
+        self.out_dim = out_dim
+        print("PropagateDataLayer out_dim: ", self.out_dim)
+        return [out_dim]
+
+    def forward(self, inputs):
+        print("PropagateDataLayer inputs size: ", len(inputs))
+        # TODO implement concat (cate, xyz, points)
+        res = np.ones(self.out_dim).astype(np.float32)
+
+        print("PropagateDataLayer res: ", res.shape, res.shape)
 
         return [res]
 
@@ -880,8 +963,10 @@ cv2.dnn_registerLayer('idx_pts', IndexPtsLayer)
 cv2.dnn_registerLayer('query_ball_pts', QueryBallPtsLayer)
 cv2.dnn_registerLayer('sub_center', SubCenterLayer)
 cv2.dnn_registerLayer('Tile', TileLayer)
-cv2.dnn_registerLayer('TopK', TopKLayer)
-cv2.dnn_registerLayer('dist', DistLayer)
+# cv2.dnn_registerLayer('TopK', TopKLayer)
+# cv2.dnn_registerLayer('dist', DistLayer)
+cv2.dnn_registerLayer('get_cate', GetCateLayer)
+cv2.dnn_registerLayer("propagatedata", PropagateDataLayer)
 
 
 if __name__ == "__main__":
@@ -953,8 +1038,9 @@ if __name__ == "__main__":
     torch.ops.load_library("./inference_onnx/query_ball_pts.dll")
     torch.ops.load_library("./inference_onnx/sub_center.dll")
     # torch.ops.load_library("./inference_onnx/sample_group_all.dll")
-    # torch.ops.load_library("./inference_onnx/get_cate.dll")
-    torch.ops.load_library("./inference_onnx/dist.dll")
+    torch.ops.load_library("./inference_onnx/get_cate.dll")
+    # torch.ops.load_library("./inference_onnx/dist.dll")
+    torch.ops.load_library("./inference_onnx/propagatedata.dll")
 
 
     def my_fps(g, xyz, npoints):
@@ -966,49 +1052,51 @@ if __name__ == "__main__":
     def my_query_ball_pts(g, radius, nsample, xyz, new_xyz):
         return g.op("my_ops::query_ball_pts", radius, nsample, xyz, new_xyz)
 
-    def my_sub_center(g, grouped_xyz, new_xyz, B, S, C):
-        return g.op("my_ops::sub_center", grouped_xyz, new_xyz, B, S, C)
+    def my_sub_center(g, grouped_xyz, new_xyz):
+        return g.op("my_ops::sub_center", grouped_xyz, new_xyz)
 
     # def my_sample_and_group_all(g, xyz, points):
     #     return g.op("my_ops::sample_and_group_all", xyz, points)
-    #
-    # def my_get_cate(g, n, B, C):
-    #     return g.op("my_ops::get_cate", n, B, C)
 
-    def my_dist(g, src, dst, N):
-        return g.op("my_ops::dist", src, dst, N)
+    def my_get_cate(g, xyz, points, n_c, C):
+        return g.op("my_ops::get_cate", xyz, points, n_c, C)
+
+    # def my_dist(g, src, dst):
+    #     return g.op("my_ops::dist", src, dst)
+
+    def my_propagatedata(g, xyz1, xyz2, points1, points2):
+        return g.op("my_ops::propagatedata", xyz1, xyz2, points1, points2)
 
     torch.onnx.register_custom_op_symbolic("my_ops::fps", my_fps, 9)
     torch.onnx.register_custom_op_symbolic("my_ops::idx_pts", my_idx_pts, 9)
     torch.onnx.register_custom_op_symbolic("my_ops::query_ball_pts", my_query_ball_pts, 9)
     torch.onnx.register_custom_op_symbolic("my_ops::sub_center", my_sub_center, 9)
     # torch.onnx.register_custom_op_symbolic("my_ops::sample_and_group_all", my_sample_and_group_all, 9)
-    # torch.onnx.register_custom_op_symbolic("my_ops::get_cate", my_get_cate, 9)
-    torch.onnx.register_custom_op_symbolic("my_ops::dist", my_dist, 9)
+    torch.onnx.register_custom_op_symbolic("my_ops::get_cate", my_get_cate, 9)
+    # torch.onnx.register_custom_op_symbolic("my_ops::dist", my_dist, 9)
+    torch.onnx.register_custom_op_symbolic("my_ops::propagatedata", my_propagatedata, 9)
 
     net = TestNet()
+    state_dict = torch.load("../log/part_seg/pointnet2_part_seg_msg_add_data/checkpoints/best_model_1.3.0_new.pth")
+    net.load_state_dict(state_dict)
     inputs = torch.randn((1, 3, 1500))  # B, C, N
     inputs = inputs.unsqueeze(0)
 
-    cate = torch.ones((1, 1, 1500))  # B, n_cls, N
-    cate = cate.unsqueeze(0)
-
-    out = net(inputs, cate)
+    out = net(inputs)
     print("**** torch out ******: ", out.shape)
     onnx_path = "./test.onnx"
     print("start convert model to onnx >>>")
     torch.onnx.export(net,  # support torch.nn.Module, torch.jit.ScriptModule or torch.jit.ScriptFunction
-                      (inputs, cate),
+                      (inputs,),
                       onnx_path,
                       verbose=True,
-                      input_names=["points", "cate"],
+                      input_names=["points"],
                       output_names=["res"],
                       opset_version=12,
                       operator_export_type=torch.onnx.OperatorExportTypes.ONNX,  # ONNX_ATEN_FALLBACK,
                       dynamic_axes={
                           "points": {1: "b", 2: "c", 3: "n"},
-                          "cate": {1: "b", 2: "n_c", 3: "n"},
-                          "res": {0: "b", 1: "n"}
+                          "res": {0: "b", 1: "n", 2: "n_c"}
                       }
                       )
 
@@ -1065,7 +1153,6 @@ if __name__ == "__main__":
     print("start set input")
     print("inputs shape: ", inputs.shape)
     net.setInput(inputs.numpy().astype(np.float32), name="points")
-    net.setInput(cate.numpy().astype(np.float32), name="cate")
     # net.setInput(center.numpy().astype(np.float32), name="center")
     print("set input Done")
     cv_res = net.forward()
