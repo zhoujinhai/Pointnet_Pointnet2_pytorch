@@ -84,9 +84,9 @@ torch::Tensor index_points(torch::Tensor points, torch::Tensor idx, long long ch
     /*
     Input:
         points: input points data, [B, N, C]
-        idx: sample index data, [B, S]
+        idx: sample index data, [B, S] / [B, S1, S2]
     Return:
-        new_points:, indexed points data, [B, S, C]
+        new_points:, indexed points data, [B, S, C] / [B, S1, S2, C]
     */
     torch::Device device = points.device();
     int B = points.size(0);
@@ -170,6 +170,33 @@ torch::Tensor square_distance(torch::Tensor src, torch::Tensor dst) {
 }
 
 
+//def query_ball_point(radius: float, nsample : int, xyz, new_xyz) :
+//    """
+//    Input :
+//    radius : local region radius
+//    nsample : max sample number in local region
+//    xyz : all points, [B, N, 3]
+//    new_xyz : query points, [B, S, 3]
+//    Return :
+//    group_idx : grouped points index, [B, S, nsample]
+//    """
+//    device = xyz.device
+//    B, N, C = xyz.shape
+//    _, S, _ = new_xyz.shape
+//    B, N, C, S = int(B), int(N), int(C), int(S)
+//    group_idx = torch.arange(N, dtype = torch.long).to(device).view(1, 1, N).repeat([B, S, 1])
+//    sqrdists = square_distance(new_xyz, xyz)
+//    # mask = sqrdists > radius * *2
+//    # group_idx[mask] = N
+//    temp = torch.ones(group_idx.shape, dtype = torch.long) * N    # (B, S, N)
+//    group_idx = torch.where(sqrdists > radius * *2, temp, group_idx)
+//
+//    group_idx = group_idx.sort(dim = -1)[0][:, : , : nsample]
+//    group_first = group_idx[:, : , 0].view(B, S, 1).repeat([1, 1, nsample])
+//    # mask = group_idx == N
+//    # group_idx[mask] = group_first[mask]
+//    group_idx = torch.where(group_idx == N, group_first, group_idx)
+//    return group_idx
 torch::Tensor query_ball_point(torch::Tensor radius, long long nsample, torch::Tensor xyz, torch::Tensor new_xyz) {
     at::Device device = xyz.device();
     int B = xyz.size(0);

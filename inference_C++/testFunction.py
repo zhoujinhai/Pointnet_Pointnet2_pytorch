@@ -769,7 +769,6 @@ class SubCenterLayer(object):
     def __init__(self, params, blobs):
         print("SubCenterLayer params: ", params)
         print("SubCenterLayer blobs: ", blobs)
-        # print("B, S, C", self.B, self.S, self.C)
         self.out_dim = None
 
     # Our layer receives one inputs. We need to find the max
@@ -1079,7 +1078,7 @@ if __name__ == "__main__":
     net = TestNet()
     state_dict = torch.load("../log/part_seg/pointnet2_part_seg_msg_add_data/checkpoints/best_model_1.3.0_new.pth")
     net.load_state_dict(state_dict)
-    inputs = torch.randn((1, 3, 1500))  # B, C, N
+    inputs = torch.randn((1, 3, 2500))  # B, C, N
     inputs = inputs.unsqueeze(0)
 
     out = net(inputs)
@@ -1101,30 +1100,6 @@ if __name__ == "__main__":
                       )
 
     print("onnx model has exported!")
-
-    # inputs = torch.randn((1, 2, 4, 3))
-    #
-    # center = torch.tensor([[[2.2264, 0.1646, 0.3770], [-0.6141, 0.1071, 2.1032]]])
-    # print(center.shape)
-    # out = net(inputs, center)
-    # print("**** torch out ******: ", out.shape)
-    # onnx_path = "./test.onnx"
-    # print("start convert model to onnx >>>")
-    # torch.onnx.export(net,  # support torch.nn.Module, torch.jit.ScriptModule or torch.jit.ScriptFunction
-    #                   (inputs, center),
-    #                   onnx_path,
-    #                   verbose=True,
-    #                   input_names=["points", "center"],
-    #                   output_names=["res"],
-    #                   opset_version=12,
-    #                   operator_export_type=torch.onnx.OperatorExportTypes.ONNX,  # ONNX_ATEN_FALLBACK,
-    #                   # dynamic_axes={
-    #                   #     "points": {1: "b", 2: "c", 3: "n"},
-    #                   #     "res": {0: "b", 1: "n"}
-    #                   # }
-    #                   )
-    #
-    # print("onnx model has exported!")
 
     # # inference by onnx
     # import onnxruntime

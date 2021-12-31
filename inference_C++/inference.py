@@ -1,7 +1,7 @@
 import os
 import torch
 import numpy as np
-from net2onnx import get_model
+from net2onnx import GetModel
 
 
 def to_categorical(y, num_classes):
@@ -32,7 +32,7 @@ class InferenceClass(object):
         self.use_normal = use_normal
         self.num_cls = 1
         self.num_part = 2
-        self.net = get_model(self.num_part, normal_channel=use_normal, num_categories=self.num_cls).to(self.device)
+        self.net = GetModel(self.num_part, normal_channel=use_normal, num_categories=self.num_cls).to(self.device)
         self.label = torch.tensor([[0]]).long().to(self.device)
         self.cate = to_categorical(self.label, self.num_cls)
         checkpoint = torch.load(model_path)
@@ -96,6 +96,7 @@ class InferenceClass(object):
             cur_pred_val = seg_pred.cpu().data.numpy()
 
             cur_pred_val_logits = cur_pred_val
+            print("&&&&&&&&&res: ", cur_pred_val_logits)
             result = np.argmax(cur_pred_val_logits, 2)
             idx = choices[np.where(result == 1)[1]]
             return idx
