@@ -162,7 +162,7 @@ torch::Tensor square_distance(torch::Tensor src, torch::Tensor dst) {
     int B = src.size(0);
     int N = src.size(1);
     int M = dst.size(1);
-    torch::Tensor dist = -2 * torch::matmul(src, dst.permute({ 0, 2, 1 }));
+    torch::Tensor dist = -2.0 * torch::matmul(src, dst.permute({ 0, 2, 1 }));
     dist += torch::sum(src * src, -1).view({ B, N, 1 });
     dist += torch::sum(dst * dst, -1).view({ B, 1, M });
     dist = dist.unsqueeze(0);
@@ -238,6 +238,7 @@ torch::Tensor get_cate(torch::Tensor xyz, torch::Tensor points, long long nCate,
     return res.clone();
 }
 
+
 torch::Tensor propagation_data_process(torch::Tensor xyz1, torch::Tensor xyz2, torch::Tensor points1, torch::Tensor points2) {
     torch::Tensor dists = square_distance(xyz1, xyz2).squeeze(0);
     std::tuple<torch::Tensor, torch::Tensor> sorted = dists.sort(2);
@@ -282,14 +283,15 @@ at::TensorList sample_and_group_all(torch::Tensor xyz, torch::Tensor points) {
 }
 
 
-// static auto registry = torch::RegisterOperators("my_ops::fps", &farthest_point_sampling);  // torch.__version__: 1.5.0
-// static auto registry = torch::RegisterOperators("my_ops::idx_pts", &index_points);
-// static auto registry = torch::RegisterOperators("my_ops::query_ball_pts", &query_ball_point);
- static auto registry = torch::RegisterOperators("my_ops::sub_center", &sub_center);
+// torch.__version__: 1.5.0
+ //static auto registry = torch::RegisterOperators("my_ops::fps", &farthest_point_sampling);  
+ //static auto registry = torch::RegisterOperators("my_ops::idx_pts", &index_points);
+ //static auto registry = torch::RegisterOperators("my_ops::query_ball_pts", &query_ball_point);
+ //static auto registry = torch::RegisterOperators("my_ops::sub_center", &sub_center);
 // static auto registry = torch::RegisterOperators("my_ops::sample_and_group_all", &sample_and_group_all);
  //static auto registry = torch::RegisterOperators("my_ops::get_cate", &get_cate); 
-// static auto registry = torch::RegisterOperators("my_ops::dist", &square_distance);
-//static auto registry = torch::RegisterOperators("my_ops::propagatedata", &propagation_data_process);
+ //static auto registry = torch::RegisterOperators("my_ops::dist", &square_distance);
+static auto registry = torch::RegisterOperators("my_ops::propagatedata", &propagation_data_process);
 
 //// torch.__version__ >= 1.6.0  torch/include/torch/library.h
 //TORCH_LIBRARY(my_ops, m) {

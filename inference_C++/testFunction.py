@@ -6,6 +6,26 @@ import cv2
 import numpy as np
 
 
+def show_pcl_data(data, label_cls=-1):
+    import vedo
+    points = data[:, 0:3]
+
+    colours = ["grey", "red", "blue", "brown", "yellow", "green", "black", "pink"]
+    labels = data[:, label_cls]  # 最后一列为标签列
+    diff_label = np.unique(labels)
+    print("res_label: ", diff_label)
+    group_points = []
+    for label in diff_label:
+        point_group = points[labels == label]
+        group_points.append(point_group)
+
+    show_pts = []
+    for i, point in enumerate(group_points):
+        pt = vedo.Points(point.reshape(-1, 3)).pointSize(6).c((colours[i % len(colours)]))  # 显示点
+        show_pts.append(pt)
+    vedo.show(show_pts)
+
+
 def pc_normalize(pc):
     centroid = np.mean(pc, axis=0)
     pc = pc - centroid
@@ -18,7 +38,7 @@ def process_data(input_data, is_file=True):
     data = None
     if is_file:
         ext = os.path.splitext(input_data)[-1]
-        if ext == ".txt":
+        if ext == ".txt" or ext == ".pts":
             data = np.loadtxt(input_data).astype(np.float32)
         elif ext == ".pcd":
             data = np.loadtxt(input_data, skiprows=10).astype(np.float32)
@@ -41,8 +61,9 @@ def process_data(input_data, is_file=True):
 
     point_set = data[:, 0:3]
 
-    point_set[:, 0:3] = pc_normalize(point_set[:, 0:3])
-    choice = np.random.choice(range(0, len(point_set)), len(point_set), replace=False)
+    # point_set[:, 0:3] = pc_normalize(point_set[:, 0:3])
+    # choice = np.random.choice(range(0, len(point_set)), len(point_set), replace=False)
+    choice = np.arange(0, len(point_set))
     point_set = point_set[choice, :]
 
     point_set = np.expand_dims(point_set, axis=0)
@@ -193,7 +214,7 @@ def sample_and_group_all(xyz, points):
     # B, N, C = int(B), int(N), int(C)    # this dim is fixed
     new_xyz = torch.zeros(B, 1, C).to(device)
     grouped_xyz = xyz.view(B, 1, N, C)
-    new_points = torch.cat([grouped_xyz, points.view(B, 1, N, D)], dim=-1)
+    new_points = torch.cat([grouped_xyz, points.view(B, 1, N, D)], dim=-1)  # grouped_xyz.shape: (1, 1, 256, 3), points.shape: (1, 1, 256, 512) ==> (1, 1, 256, 515)
     # if points is not None:
     #     new_points = torch.cat([grouped_xyz, points.view(B, 1, N, -1)], dim=-1)
     # else:
@@ -258,7 +279,8 @@ class PointNetSetAbstractionMsg1(nn.Module):
         S = self.npoint
         # new_xyz = index_points(xyz, farthest_point_sample(xyz, S))    # 得到最新采样的点
         # print("new_xyz: ", new_xyz.shape)
-        new_xyz = torch.ops.my_ops.idx_pts(xyz, torch.ops.my_ops.fps(xyz, S), xyz.shape[-1]).squeeze(0)
+        tmp = torch.ops.my_ops.fps(xyz, S)
+        new_xyz = torch.ops.my_ops.idx_pts(xyz, tmp, xyz.shape[2]).squeeze(0)  # TODO 2022/01/05  xyz.shape[-1]
 
         new_points_list = []
 
@@ -270,7 +292,7 @@ class PointNetSetAbstractionMsg1(nn.Module):
         grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz)  # , B, S, C
         # grouped_points = index_points(points, group_idx)
         grouped_points = torch.ops.my_ops.idx_pts(points, group_idx, points.shape[-1]).squeeze(0)
-        grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
+        grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)  # grouped_points.shape: (1, 1024, 32, 3)   grouped_xyz.shape: (1, 1024, 32, 3) ==> (1, 1024, 32, 6)
 
         grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
         grouped_points = F.relu(self.bn_blocks_0_0(self.conv_blocks_0_0(grouped_points)))
@@ -286,7 +308,7 @@ class PointNetSetAbstractionMsg1(nn.Module):
         grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz)  # grouped_xyz -= new_xyz.view(B, S, 1, C)
         # grouped_points = index_points(points, group_idx)
         grouped_points = torch.ops.my_ops.idx_pts(points, group_idx, points.shape[-1]).squeeze(0)
-        grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
+        grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)  # grouped_points.shape: (1, 1024, 64, 3)   grouped_xyz.shape: (1, 1024, 64, 3)  ==> (1, 1024, 64, 6)
 
         grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
         grouped_points = F.relu(self.bn_blocks_1_0(self.conv_blocks_1_0(grouped_points)))
@@ -302,7 +324,7 @@ class PointNetSetAbstractionMsg1(nn.Module):
         grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz)  # grouped_xyz -= new_xyz.view(B, S, 1, C)
         # grouped_points = index_points(points, group_idx)
         grouped_points = torch.ops.my_ops.idx_pts(points, group_idx, points.shape[-1]).squeeze(0)
-        grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
+        grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)  # grouped_points.shape: (1, 1024, 128, 3), grouped_xyz: (1, 1024, 128, 3) ==> (1, 1024, 128, 6)
 
         grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
         grouped_points = F.relu(self.bn_blocks_2_0(self.conv_blocks_2_0(grouped_points)))
@@ -368,7 +390,7 @@ class PointNetSetAbstractionMsg2(nn.Module):
         grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz)
         # grouped_points = index_points(points, group_idx)
         grouped_points = torch.ops.my_ops.idx_pts(points, group_idx, points.shape[-1]).squeeze(0)   # last dim is 320 not 3
-        grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
+        grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)  # grouped_points.shape: (1, 256, 64, 320), grouped_xyz.shape: (1, 256, 64, 3) ==> (1, 256, 64, 323)
 
         grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
         grouped_points = F.relu(self.bn_blocks_0_0(self.conv_blocks_0_0(grouped_points)))
@@ -385,7 +407,7 @@ class PointNetSetAbstractionMsg2(nn.Module):
         grouped_xyz = torch.ops.my_ops.sub_center(grouped_xyz, new_xyz)
         # grouped_points = index_points(points, group_idx)
         grouped_points = torch.ops.my_ops.idx_pts(points, group_idx, points.shape[-1]).squeeze(0)  # last dim is 320 not 3
-        grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
+        grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)  # grouped_points.shape: (1, 256, 128, 320) grouped_xyz.shape: (1, 256, 128, 3) ==> (1, 256, 128, 323)
 
         grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
         grouped_points = F.relu(self.bn_blocks_1_0(self.conv_blocks_1_0(grouped_points)))
@@ -469,7 +491,7 @@ class PointNetFeaturePropagation0(nn.Module):
         interpolated_points = points2.repeat(1, N, 1)  # interpolated_points = points2.expand(-1, N, -1)
 
         points1 = points1.permute(0, 2, 1)
-        new_points = torch.cat([points1, interpolated_points], dim=-1)
+        new_points = torch.cat([points1, interpolated_points], dim=-1)  # points1.shape: (1, 256, 512) interpolated_points.shape: (1, 256, 1024) ==> (1, 256, 1536)
 
         new_points = new_points.permute(0, 2, 1)
         # for conv, bn in zip(self.mlp_convs, self.mlp_bns):
@@ -963,7 +985,7 @@ cv2.dnn_registerLayer('query_ball_pts', QueryBallPtsLayer)
 cv2.dnn_registerLayer('sub_center', SubCenterLayer)
 cv2.dnn_registerLayer('Tile', TileLayer)
 # cv2.dnn_registerLayer('TopK', TopKLayer)
-# cv2.dnn_registerLayer('dist', DistLayer)
+cv2.dnn_registerLayer('dist', DistLayer)
 cv2.dnn_registerLayer('get_cate', GetCateLayer)
 cv2.dnn_registerLayer("propagatedata", PropagateDataLayer)
 
@@ -1078,11 +1100,33 @@ if __name__ == "__main__":
     net = TestNet()
     state_dict = torch.load("../log/part_seg/pointnet2_part_seg_msg_add_data/checkpoints/best_model_1.3.0_new.pth")
     net.load_state_dict(state_dict)
+    net = net.eval()
+
+    data_path = r"D:\Debug_dir\inputs.pts"
+    points, choices = process_data(data_path)
+    points = points.transpose(2, 1)
+    print("*******", points.shape, points[0][0][:10], points[0][1][:10], points[0][2][:10])
+
+    seg_pred = net(points.unsqueeze(0))
+    cur_pred_val_logits = seg_pred.cpu().data.numpy()
+    print("&&&&&&&&&res: ", cur_pred_val_logits.shape, cur_pred_val_logits)
+    result = np.argmax(cur_pred_val_logits, 2)
+    idx = choices[np.where(result == 1)[1]]
+    print("res: ", idx, len(idx))
+
+    # show result
+    data = np.loadtxt(data_path).astype(np.float32)
+    label = [0] * len(data)
+    for r in idx:
+        label[r] = 1
+    show_data = np.c_[data, np.asarray(label)]
+    show_pcl_data(show_data)
+
     inputs = torch.randn((1, 3, 2500))  # B, C, N
     inputs = inputs.unsqueeze(0)
-
-    out = net(inputs)
-    print("**** torch out ******: ", out.shape)
+    # inputs = points.unsqueeze(0)
+    # # # out = net(inputs)
+    # # # print("**** torch out ******: ", out.shape)
     onnx_path = "./test.onnx"
     print("start convert model to onnx >>>")
     torch.onnx.export(net,  # support torch.nn.Module, torch.jit.ScriptModule or torch.jit.ScriptFunction
@@ -1101,34 +1145,34 @@ if __name__ == "__main__":
 
     print("onnx model has exported!")
 
-    # # inference by onnx
-    # import onnxruntime
-    # import onnx
-    # # check
-    # onnx_model = onnx.load(onnx_path)
-    # onnx.checker.check_model(onnx_model)
-    # so1 = onnxruntime.SessionOptions()
-    # available_providers = onnxruntime.get_available_providers()
+    # # # inference by onnx
+    # # import onnxruntime
+    # # import onnx
+    # # # check
+    # # onnx_model = onnx.load(onnx_path)
+    # # onnx.checker.check_model(onnx_model)
+    # # so1 = onnxruntime.SessionOptions()
+    # # available_providers = onnxruntime.get_available_providers()
+    # #
+    # # net_session = onnxruntime.InferenceSession(onnx_path, sess_options=so1, providers=available_providers)
+    # # out = net_session.run(None, {"points": inputs.numpy(), "center": center.numpy()})
+    # # print("----onnx runtime out----: ", out)
     #
-    # net_session = onnxruntime.InferenceSession(onnx_path, sess_options=so1, providers=available_providers)
-    # out = net_session.run(None, {"points": inputs.numpy(), "center": center.numpy()})
-    # print("----onnx runtime out----: ", out)
-
-    import cv2
-    net = cv2.dnn.readNetFromONNX(onnx_path)
-    # 获取各层信息
-    layer_names = net.getLayerNames()
-
-    for name in layer_names:
-        id = net.getLayerId(name)
-        layer = net.getLayer(id)
-        print("layer id : %d, type : %s, name: %s" % (id, layer.type, layer.name))
-
-    print("cv2 load model is OK!")
-    print("start set input")
-    print("inputs shape: ", inputs.shape)
-    net.setInput(inputs.numpy().astype(np.float32), name="points")
-    # net.setInput(center.numpy().astype(np.float32), name="center")
-    print("set input Done")
-    cv_res = net.forward()
-    print("$$$$$cv res$$$$: ", cv_res.shape, cv_res.dtype, type(cv_res))
+    # import cv2
+    # net = cv2.dnn.readNetFromONNX(onnx_path)
+    # # 获取各层信息
+    # layer_names = net.getLayerNames()
+    #
+    # for name in layer_names:
+    #     id = net.getLayerId(name)
+    #     layer = net.getLayer(id)
+    #     print("layer id : %d, type : %s, name: %s" % (id, layer.type, layer.name))
+    #
+    # print("cv2 load model is OK!")
+    # print("start set input")
+    # print("inputs shape: ", inputs.shape)
+    # net.setInput(inputs.numpy().astype(np.float32), name="points")
+    # # net.setInput(center.numpy().astype(np.float32), name="center")
+    # print("set input Done")
+    # cv_res = net.forward()
+    # print("$$$$$cv res$$$$: ", cv_res.shape, cv_res.dtype, type(cv_res))

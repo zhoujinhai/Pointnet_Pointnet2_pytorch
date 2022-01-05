@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <chrono>
+#include <string>
 #include "fstream"
 
 #include "opencv2/dnn.hpp"
@@ -16,7 +17,10 @@ void printMat(cv::Mat src, int maxC = 15, int maxR = 15) {
     }
     std::cout << " is shape " << std::endl << "data: " << std::endl;
 
-    if (3 == dim) {
+    if (2 == dim) {
+        std::cout << src << std::endl;
+    }
+    else if (3 == dim) {
         for (int i = 0; i < shape[0]; ++i) {
             for (int j = 0; j < shape[1]; ++j) {
                 if (j > maxR) { break; }
@@ -45,8 +49,23 @@ void printMat(cv::Mat src, int maxC = 15, int maxR = 15) {
             std::cout << "\n";
         }
     }
-    else if (2 == dim) {
-        std::cout << src << std::endl;
+    else if (5 == dim) {
+        std::vector<int> newShape{ shape[1], shape[2], shape[3], shape[4] };
+        src = src.reshape(0, newShape);
+        for (int i = 0; i < shape[1]; ++i) {
+            for (int j = 0; j < shape[2]; ++j) {
+                for (int k = 0; k < shape[3]; ++k) {
+                    if (k > maxR) { break; }
+                    for (int c = 0; c < shape[4]; ++c) {
+                        if (c > maxC) { break; }
+                        std::cout << src.ptr<float>(i, j, k)[c] << " ";
+                    }
+                    std::cout << "\n";
+                }
+                std::cout << "\n";
+            }
+            std::cout << "\n";
+        }
     }
 
 }
@@ -79,7 +98,7 @@ cv::Mat square_distance(cv::Mat src, cv::Mat dst) {
         slicedst = slicedst.t();
         //std::cout << slicedst << std::endl;
 
-        cv::Mat dist = -2 * slicesrc * slicedst;
+        cv::Mat dist = -2.0 * slicesrc * slicedst;
         /* std::cout << "slicexyz: " << slicesrc << std::endl;
          std::cout << "slicepoints: " << slicedst << std::endl;
          std::cout << "dist: " << dist << std::endl;*/
@@ -165,7 +184,7 @@ void farthest_point_sampling(const cv::Mat& xyz, int npoints, cv::Mat& out) {
         float maxV = xyz.at<float>(b, 0, 0);
         int maxId = 0;
         for (int n = 1; n < N; ++n) {
-            if (xyz.at<float>(b, n, 0) > maxV) {
+            if (xyz.ptr<float>(b, n)[0] > maxV) {
                 maxId = n;
                 maxV = xyz.at<float>(b, n, 0);
             }
@@ -179,7 +198,7 @@ void farthest_point_sampling(const cv::Mat& xyz, int npoints, cv::Mat& out) {
             for (int r = 0; r < N; r++) {
                 float sum = 0.0;
                 for (int c = 0; c < C; c++) {
-                    float sub = xyz.at<float>(b, r, c) - xyz.at<float>(b, maxId, c);    // can be optimize by kd_tree
+                    float sub = xyz.ptr<float>(b, r)[c] - xyz.ptr<float>(b, maxId)[c];    // can be optimize by kd_tree
                     sum += sub * sub;
                 }
                 tmp.at<float>(0, r) = sum;
@@ -396,6 +415,7 @@ void index_points(const cv::Mat& points, const cv::Mat& idx, cv::Mat& out, int c
 void propagation_data_process(const cv::Mat& xyz1, const cv::Mat& xyz2, const cv::Mat& points1, const cv::Mat& points2, cv::Mat& out) {
     assert(xyz1.size[0] == xyz2.size[0] && xyz2.size[0] == points1.size[0] && points1.size[0] == points2.size[0]);
     cv::Mat dists = square_distance(xyz1, xyz2);  // B * N * M
+   
     int B = dists.size[0];
     int N = dists.size[1];
     int M = dists.size[2];
@@ -425,7 +445,7 @@ void propagation_data_process(const cv::Mat& xyz1, const cv::Mat& xyz2, const cv
 
         sortIdx = sortIdx(cv::Range::all(), cv::Range(0, 3));
         sliceDist = sliceDist(cv::Range::all(), cv::Range(0, 3));
-
+        
         cv::Mat dist_recip = 1.0 / (sliceDist + 1e-8);
         cv::Mat norm;
         cv::reduce(dist_recip, norm, 1, cv::REDUCE_SUM);
@@ -486,7 +506,7 @@ void propagation_data_process(const cv::Mat& xyz1, const cv::Mat& xyz2, const cv
     float* catData = (float*)out.data;
     int catId = 0;
     for (int b = 0; b < catShape[0]; ++b) {
-        for (int n = 0; n < catShape.size(); ++n) {
+        for (int n = 0; n < catShape[1]; ++n) {
             for (int r = 0; r < points1.size[1]; ++r) {
                 catData[catId++] = points1.at<float>(b, r, n);
             }
@@ -495,7 +515,6 @@ void propagation_data_process(const cv::Mat& xyz1, const cv::Mat& xyz2, const cv
             }
         }
     }
-    /*printMat(out);*/
 }
 
 
@@ -518,7 +537,7 @@ bool readFile(std::string dataPath, std::vector<std::vector<float> >& points, bo
     }
 
     std::string suffix = dataPath.substr(dataPath.find_last_of('.') + 1);
-    if (suffix == "txt") {
+    if (suffix == "txt" || suffix == "pts") {
         for (int i = 0; i < data.size(); ++i) {
             std::vector<float> line_data;
             std::istringstream ss(data[i]);
@@ -753,7 +772,7 @@ public:
 
         // implement fps by C++
         farthest_point_sampling(inp, nPoint, out);  // need to optimize
-
+        //printMat(out);
     }
 private:
     int nPoint;
@@ -869,7 +888,7 @@ public:
 
         //Implement the index points
         query_ball_point(radius, nsample, xyz, new_xyz, out);
-        printMat(out);
+        //printMat(out);
     }
 private:
     float radius;
@@ -953,6 +972,8 @@ public:
                 }
             }
         }
+
+        //printMat(out);
     }
 };
 
@@ -1030,8 +1051,8 @@ public:
         }
         /*std::cout << "input: " << std::endl;
         printMat(input);
-        std::cout << "out: " << std::endl;
-        printMat(out);*/
+        std::cout << "out: " << std::endl;*/
+        // printMat(out);
     }
 private:
     int idx;
@@ -1094,6 +1115,7 @@ public:
         cv::Mat& out = outputs[0];
        
         propagation_data_process(xyz1, xyz2, points1, points2, out);
+        // printMat(out);
     }
 };
 
@@ -1171,7 +1193,10 @@ public:
         int N = xyzShape[2];
         int nPts = pointsShape[1];
 
-        int i = n_cls * N;
+        int i = 0;
+        for (int c = 0; c < n_cls * N; ++c) {
+            outData[i++] = 1.0;
+        }
         for (int b = 0; b < B; ++b) {
             for (int j = 0; j < nXYZ; ++j) {
                 for (int k = 0; k < N; ++k) {
@@ -1185,9 +1210,9 @@ public:
             }
         }
         /*printMat(xyz);
-        printMat(points);
+        printMat(points);*/
 
-        printMat(out);*/
+        // printMat(out);
 
     }
 private:
@@ -1199,34 +1224,54 @@ private:
 int main(int argc, char* argv[])
 {
 
-    std::vector<int> xyzShape{ 1, 10, 3 };
+    ////std::vector<int> xyzShape{ 1, 10, 3 };
 
-    // cv::Mat a = (cv::Mat_<int>(3, 3) << 1, 2, 3, 4, 5, 6, 7, 8, 9);
+    ////// cv::Mat a = (cv::Mat_<int>(3, 3) << 1, 2, 3, 4, 5, 6, 7, 8, 9);
 
-    /*std::vector<float> testData;
-    for (int i = 1; i < 31; ++i) {
-        testData.push_back(i);
-    }
-    cv::Mat xyz(testData);
-    xyz = xyz.reshape(0, xyzShape);*/
+    /////*std::vector<float> testData;
+    ////for (int i = 1; i < 31; ++i) {
+    ////    testData.push_back(i);
+    ////}
+    ////cv::Mat xyz(testData);
+    ////xyz = xyz.reshape(0, xyzShape);*/
 
-    cv::Mat xyz = (cv::Mat_<float>(8, 3) << 0.2901, 1.2105, -1.2701, 1.6728, 0.1126, 0.2237, -0.2826, -0.4668, -0.7778, 0.3933, -1.8726, -0.2206,
-        0.8394, 0.6340, -0.3097, 0.2373, -1.2495, 0.7897, 0.1440, -0.8319, -2.0404, -1.2246, 0.3089, -0.0196);
-    xyz = xyz.reshape(0, { 1, 8, 3 });
+    //cv::Mat xyz1 = (cv::Mat_<float>(8, 3) << 0.2901, 1.2105, -1.2701, 1.6728, 0.1126, 0.2237, -0.2826, -0.4668, -0.7778, 0.3933, -1.8726, -0.2206,
+    //    0.8394, 0.6340, -0.3097, 0.2373, -1.2495, 0.7897, 0.1440, -0.8319, -2.0404, -1.2246, 0.3089, -0.0196);
+    //xyz1 = xyz1.reshape(0, { 1, 8, 3 });
 
-    cv::Mat new_xyz = (cv::Mat_<float>(5, 3) << -0.0043, 1.3982, -1.2204, -0.6885, 0.4035, -2.2926,
-        -0.9572, 0.5397, -1.3338, 1.5315, -1.9127, -0.2904, 1.4844, -0.5510, -2.4500);
-    new_xyz = new_xyz.reshape(0, { 1, 5, 3 });
+    //cv::Mat xyz2 = (cv::Mat_<float>(5, 3) << -0.0043, 1.3982, -1.2204, -0.6885, 0.4035, -2.2926,
+    //    -0.9572, 0.5397, -1.3338, 1.5315, -1.9127, -0.2904, 1.4844, -0.5510, -2.4500);
+    //xyz2 = xyz2.reshape(0, { 1, 3, 5 });
 
-    printMat(xyz);
-    printMat(new_xyz);
-    query_ball_point(1.5, 4, xyz, new_xyz);
-    
-    std::cout << "$$$$$$$$" << std::endl;
+    //printMat(xyz1);
+    //printMat(xyz2);
+
+    //std::vector<int> catShape;
+    //catShape.push_back(xyz1.size[0]);
+    //catShape.push_back(xyz1.size[2]);
+    //catShape.push_back(xyz1.size[1] + xyz2.size[2]);
+
+    //std::vector<int> testShape = { 1, 1, 3, 13 };
+    //cv::Mat testRes(4, testShape.data(), xyz1.type());
+    //float* catData = (float*)testRes.data;
+    //int catId = 0;
+    //for (int b = 0; b < catShape[0]; ++b) {
+    //    for (int n = 0; n < catShape[1]; ++n) {
+    //        for (int r = 0; r < xyz1.size[1]; ++r) {
+    //            catData[catId++] = xyz1.at<float>(b, r, n);
+    //        }
+    //        for (int c = 0; c < xyz2.size[2]; ++c) {
+    //            catData[catId++] = xyz2.ptr<float>(b, n)[c];
+    //        }
+    //    }
+    //}
+    //printMat(testRes);
+    //
+    //std::cout << "$$$$$$$$" << std::endl;
     
     
     // load data
-    std::string dataPath = "D:/Debug_dir/news_data/pcd_label_normal/bankou (1)_minCruv.pcd";  // argv[1]
+    std::string dataPath = "D:/Debug_dir/inputs.pts";  // "D:/Debug_dir/news_data/pcd_label_normal/bankou (1)_minCruv.pcd";  // argv[1]
 
     std::vector<std::vector<float> > points;                // N * 3
     if (!readFile(dataPath, points)) {
@@ -1235,8 +1280,11 @@ int main(int argc, char* argv[])
     
     // preprocess data
     std::vector<int> ids;
-    if (!PreProcess(points, ids)) {
+    /*if (!PreProcess(points, ids)) {
         return -1;
+    }*/
+    for (int i = 0; i < points.size(); ++i) {
+        ids.push_back(i);
     }
 
     cv::Mat datas(points.at(0).size(), points.size(), CV_32FC1);  // 3 * N
@@ -1275,13 +1323,52 @@ int main(int argc, char* argv[])
     net.setInput(datas, "points");
 
     cv::Mat res = net.forward();
-    int nRes = res.total();
-    printMat(res);
-    std::cout << " total item: " << nRes << std::endl;
     
     std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_span = endTime - startTime;
-    std::cout << "all code took " << time_span.count() << " seconds." << std::endl;                         
+    std::cout << "all code took " << time_span.count() << " seconds." << std::endl;
+
+    int nRes = res.total();
+    printMat(res);
+    std::cout << " total item: " << nRes << std::endl;
+
+    int B = res.size[0];  // batch number: Here is 1.
+    int N = res.size[1];  // points number
+    int C = res.size[2];  // class number: Here seg to two class, the value is 2.
+
+    // parse result
+    std::vector<int> resIds;
+    std::vector<std::vector<float> > resPts;
+    for (int b = 0; b < B; ++b) {
+        for (int n = 0; n < N; ++n) {
+            if (res.at<float>(b, n, 0) < res.at<float>(b, n, 1)) {
+                resPts.push_back(points[n]);
+                resIds.push_back(ids[n]);
+            }
+        }
+    }
+
+    std::fstream outfile;
+    outfile.open("D:/Debug_dir/res.pts", std::ios::out);
+    if (!outfile.is_open()) {
+        std::cout << "write res to file is failed! " << std::endl;
+        return false;
+    }
+    for (auto pt : resPts) {
+        outfile << pt[0] << " " << pt[1] << " " << pt[2] << "\n";
+    }
+    outfile.close();
+
+    std::fstream outfile1;
+    outfile1.open("D:/Debug_dir/test.pts", std::ios::out);
+    if (!outfile1.is_open()) {
+        std::cout << "write test to file is failed! " << std::endl;
+        return false;
+    }
+    for (auto pt : points) {
+        outfile1 << pt[0] << " " << pt[1] << " " << pt[2] << "\n";
+    }
+    outfile1.close();
     
     return 0;
 }

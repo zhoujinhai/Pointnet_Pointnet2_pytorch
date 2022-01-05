@@ -111,7 +111,7 @@ def query_ball_point(radius: float, nsample: int, xyz, new_xyz):
     sqrdists = square_distance(new_xyz, xyz)
     # mask = sqrdists > radius ** 2
     # group_idx[mask] = N
-    temp = torch.ones(group_idx.shape, dtype=torch.long) * N    # (B, S, N)
+    temp = torch.ones(group_idx.shape, dtype=torch.long, device=device) * N    # (B, S, N)
     group_idx = torch.where(sqrdists > radius ** 2, temp, group_idx)
 
     group_idx = group_idx.sort(dim=-1)[0][:, :, :nsample]

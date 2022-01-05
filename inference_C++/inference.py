@@ -47,7 +47,7 @@ class InferenceClass(object):
         data = None
         if is_file:
             ext = os.path.splitext(input_data)[-1]
-            if ext == ".txt":
+            if ext == ".txt" or ext == ".pts":
                 data = np.loadtxt(input_data).astype(np.float32)
             elif ext == ".pcd":
                 data = np.loadtxt(input_data, skiprows=10).astype(np.float32)
@@ -74,8 +74,11 @@ class InferenceClass(object):
             point_set = data[:, 0:3]
 
         point_set[:, 0:3] = pc_normalize(point_set[:, 0:3])
-        choice = np.random.choice(range(0, len(point_set)), len(point_set), replace=False)
+        # choice = np.random.choice(range(0, len(point_set)), len(point_set), replace=False)
+        choice = np.arange(0, len(point_set))
         point_set = point_set[choice, :]
+
+        # np.savetxt("D:/Debug_dir/inputs.pts", point_set, fmt='%.6f')
 
         point_set = np.expand_dims(point_set, axis=0)
         return torch.from_numpy(point_set), choice
@@ -124,12 +127,13 @@ def show_pcl_data(data, label_cls=-1):
 
 if __name__ == '__main__':
     model_path = "../log/part_seg/pointnet2_part_seg_msg_add_data/checkpoints/best_model.pth"  #
-    data_path = r"D:\Debug_dir\news_data\pcd_label_normal\bankou (1)_minCruv.pcd"
+    # data_path = r"D:\Debug_dir\news_data\pcd_label_normal\bankou (1)_minCruv.pcd"
+    data_path = r"D:\Debug_dir\inputs.pts"
     inference = InferenceClass(model_path, use_normal=False, use_gpu=True)
     res = inference.inference(data_path)
     print(res, len(res))
     # show result
-    data = np.loadtxt(data_path, skiprows=10).astype(np.float32)
+    data = np.loadtxt(data_path).astype(np.float32)  # np.loadtxt(data_path, skiprows=10).astype(np.float32)
     label = [0] * len(data)
     for r in res:
         label[r] = 1

@@ -861,6 +861,7 @@ if __name__ == "__main__":
         #     if len(name) <= 3:
         #         continue
         #     # print("name: ", name, "module: ", module)
+        #     # BN层
         #     if name.find("bn_blocks_") != -1 or name.find("mlp_bns_") != -1:
         #         module.running_mean = bn_mean_params[name]
         #         module.running_var = bn_var_params[name]
