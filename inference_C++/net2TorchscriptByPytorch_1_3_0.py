@@ -875,6 +875,7 @@ if __name__ == "__main__":
         # print("save torch script model ...")
         # get_model_script.save(pt_save_path)
         # print("saved torch script model in {}".format(pt_save_path))
+        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
         # 四、测试
         data_path = r"D:\Debug_dir\news_data\pcd_label_normal\bankou (1)_minCruv.pcd"
@@ -918,4 +919,4 @@ if __name__ == "__main__":
         show_data = np.c_[data, np.asarray(label)]
         show_pcl_data(show_data)
 
-        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
