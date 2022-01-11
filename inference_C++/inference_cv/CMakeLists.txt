@@ -14,16 +14,16 @@ set(CMAKE_CXX_STANDARD 11)				# C++ 11 编译器
 SET(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 # <<< CXX11
 
-# set(OPENCV_ROOT "D:/opencv-4.5.4/Release")
-set(OPENCV_ROOT "D:/opencv-4.5.4/Debug")
+set(OPENCV_ROOT "D:/opencv-4.5.4/Release")
+# set(OPENCV_ROOT "D:/opencv-4.5.4/Debug")
 include_directories(${OPENCV_ROOT}/include)
 
 if(WIN32)
 	link_directories(${OPENCV_ROOT}/lib/x64/)
 	# message(${OPENCV_ROOT}/lib/x64/)
 	add_executable(${PROJECT_NAME} test.cpp)
-	# target_link_libraries(${PROJECT_NAME} opencv_world454)   # release
-	target_link_libraries(${PROJECT_NAME} opencv_world454d)  # debug 
+	target_link_libraries(${PROJECT_NAME} opencv_world454)   # release
+	# target_link_libraries(${PROJECT_NAME} opencv_world454d)  # debug 
 
 endif()
 

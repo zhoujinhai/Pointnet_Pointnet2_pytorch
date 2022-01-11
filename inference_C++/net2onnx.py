@@ -119,7 +119,13 @@ def query_ball_point(radius: float, nsample: int, xyz, new_xyz):
     # print("group_idx: ", group_idx, group_idx.shape)
     group_idx = group_idx[:, :, :nsample]
     # print("group_idx slice: ", group_idx, group_idx.shape)
-    group_first = group_idx[:, :, 0].view(B, S, 1).repeat([1, 1, nsample])
+    _, dist_idx = torch.sort(sqrdists, dim=2)  # group_idx may be N due to group_first is N, but it will let the time increase
+    temp_first = group_idx[:, :, 0]
+    temp_first = torch.where(temp_first == N, dist_idx[:, :, 0], temp_first)
+    # print(temp_first)
+    group_first = temp_first.view(B, S, 1).repeat([1, 1, nsample])
+    # group_first = group_idx[:, :, 0].view(B, S, 1).repeat([1, 1, nsample])
+    # print(group_first)
     # mask = group_idx == N
     # group_idx[mask] = group_first[mask]
     # print("N: ", N)
@@ -280,7 +286,7 @@ class PointNetSetAbstractionMsg1(nn.Module):
         # new_xyz = index_points(xyz, farthest_point_sample(xyz, S))    # 得到最新采样的点
         # print("new_xyz: ", new_xyz.shape)
         tmp = torch.ops.my_ops.fps(xyz, S)
-        new_xyz = torch.ops.my_ops.idx_pts(xyz, tmp, xyz.shape[2]).squeeze(0)  # TODO 2022/01/05  xyz.shape[-1]
+        new_xyz = torch.ops.my_ops.idx_pts(xyz, tmp, xyz.shape[2]).squeeze(0)
 
         new_points_list = []
 
@@ -991,6 +997,14 @@ cv2.dnn_registerLayer("propagatedata", PropagateDataLayer)
 
 
 if __name__ == "__main__":
+    src = np.array([0.2901, 1.2105, -1.2701, 1.6728, 0.1126, 0.2237, -0.2826, -0.4668, -0.7778, 0.3933, -1.8726, -0.2206, 0.8394, 0.6340, -0.3097, 0.2373,
+                    -1.2495, 0.7897, 0.1440, -0.8319, -2.0404, -1.2246, 0.3089, -0.0196], dtype=np.float32)
+    dst = np.array([-0.0043, 1.3982, -1.2204, -0.6885, 0.4035, -2.2926, -0.9572, 0.5397, -1.3338, 1.5315, -1.9127, -0.2904, 1.4844, -0.5510, -2.4500], dtype=np.float32)
+    xyz1 = torch.from_numpy(src).view(1, 8, 3)
+    xyz2 = torch.from_numpy(dst).view(1, 5, 3)
+    idx = query_ball_point(1.5, 2, xyz1, xyz2)
+    print(idx)
+    index_points(xyz1, idx)
     # net = Net()
     # inputs = torch.randn((1, 3, 35))
     # out = net(inputs.unsqueeze(0))
@@ -1145,18 +1159,18 @@ if __name__ == "__main__":
 
     print("onnx model has exported!")
 
-    # # # inference by onnx
-    # # import onnxruntime
-    # # import onnx
-    # # # check
-    # # onnx_model = onnx.load(onnx_path)
-    # # onnx.checker.check_model(onnx_model)
-    # # so1 = onnxruntime.SessionOptions()
-    # # available_providers = onnxruntime.get_available_providers()
-    # #
-    # # net_session = onnxruntime.InferenceSession(onnx_path, sess_options=so1, providers=available_providers)
-    # # out = net_session.run(None, {"points": inputs.numpy(), "center": center.numpy()})
-    # # print("----onnx runtime out----: ", out)
+    # # inference by onnx
+    # import onnxruntime
+    # import onnx
+    # # check
+    # onnx_model = onnx.load(onnx_path)
+    # onnx.checker.check_model(onnx_model)
+    # so1 = onnxruntime.SessionOptions()
+    # available_providers = onnxruntime.get_available_providers()
+    #
+    # net_session = onnxruntime.InferenceSession(onnx_path, sess_options=so1, providers=available_providers)
+    # out = net_session.run(None, {"points": inputs.numpy(), "center": center.numpy()})
+    # print("----onnx runtime out----: ", out)
     #
     # import cv2
     # net = cv2.dnn.readNetFromONNX(onnx_path)

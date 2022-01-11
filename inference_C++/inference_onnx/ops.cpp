@@ -215,7 +215,12 @@ torch::Tensor query_ball_point(torch::Tensor radius, long long nsample, torch::T
 
     torch::Tensor temp_sort = std::get<0>(group_idx.sort());
     //std::cout << "temp_sort: " << temp_sort << std::endl;
-    group_idx = temp_sort.index({ "...", torch::indexing::Slice(0, nsample) });  
+    group_idx = temp_sort.index({ "...", torch::indexing::Slice(0, nsample) }); 
+
+    torch::Tensor dist_idx = std::get<1>(torch::sort(sqrdists, 2));
+    torch::Tensor temp_first = group_idx.index({ "...", 0 });
+    temp_first = torch::_s_where(temp_first == N, dist_idx.index({ "...", 0 }), temp_first);
+    
     //std::cout << "group_idx: " << group_idx << std::endl;
     torch::Tensor group_first = group_idx.index({ "...", 0 }).view({ B, S, 1 }).repeat({ 1, 1, nsample });
 
@@ -286,12 +291,12 @@ at::TensorList sample_and_group_all(torch::Tensor xyz, torch::Tensor points) {
 // torch.__version__: 1.5.0
  //static auto registry = torch::RegisterOperators("my_ops::fps", &farthest_point_sampling);  
  //static auto registry = torch::RegisterOperators("my_ops::idx_pts", &index_points);
- //static auto registry = torch::RegisterOperators("my_ops::query_ball_pts", &query_ball_point);
+ static auto registry = torch::RegisterOperators("my_ops::query_ball_pts", &query_ball_point);
  //static auto registry = torch::RegisterOperators("my_ops::sub_center", &sub_center);
 // static auto registry = torch::RegisterOperators("my_ops::sample_and_group_all", &sample_and_group_all);
  //static auto registry = torch::RegisterOperators("my_ops::get_cate", &get_cate); 
  //static auto registry = torch::RegisterOperators("my_ops::dist", &square_distance);
-static auto registry = torch::RegisterOperators("my_ops::propagatedata", &propagation_data_process);
+//static auto registry = torch::RegisterOperators("my_ops::propagatedata", &propagation_data_process);
 
 //// torch.__version__ >= 1.6.0  torch/include/torch/library.h
 //TORCH_LIBRARY(my_ops, m) {

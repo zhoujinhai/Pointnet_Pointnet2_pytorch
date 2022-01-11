@@ -2,10 +2,12 @@
 #include <vector>
 #include <chrono>
 #include <string>
+#include <algorithm>
 #include "fstream"
 
-#include "opencv2/dnn.hpp"
+#include <opencv2/dnn.hpp>
 #include <opencv2/dnn/layer.details.hpp>
+#include <opencv2/flann.hpp>
 
 
 void printMat(cv::Mat src, int maxC = 15, int maxR = 15) {
@@ -72,13 +74,17 @@ void printMat(cv::Mat src, int maxC = 15, int maxR = 15) {
 
 
 cv::Mat square_distance(cv::Mat src, cv::Mat dst) {
+    // src: (B, N, C), dst: (B, M, C)
     int B = src.size[0];
     int N = src.size[1];
+    int C = src.size[2];
+    assert(C == dst.size[2]);
     int M = dst.size[1];
     std::vector<int> distShape = { B, N, M };
     cv::Mat resDist = cv::Mat::zeros(3, distShape.data(), src.type());
     float* resDistData = (float*)resDist.data;
 
+    // **** square_distance ****
     // slice to 2D Mat
     cv::Range ranges[3];
     ranges[0] = cv::Range(0, 1);
@@ -115,6 +121,21 @@ cv::Mat square_distance(cv::Mat src, cv::Mat dst) {
             }
         }
     }
+
+    //// **** Manhattan distance ****  the predict speed can improve but the precision may be reduction
+    //int dataIdx = 0;
+    //for (int b = 0; b < B; ++b) {
+    //    for (int n = 0; n < N; ++n) {
+    //        for (int m = 0; m < M; ++m) {
+    //            float tmpSum = 0.0;
+    //            for (int c = 0; c < C; ++c) {
+    //                tmpSum += std::abs(src.ptr<float>(b, n)[c] - dst.ptr<float>(b, m)[c]);
+    //            }
+    //            resDistData[dataIdx++] = tmpSum;
+    //        }
+    //    }
+    //}
+
     //printMat(resDist);
     return resDist;
 }
@@ -192,13 +213,18 @@ void farthest_point_sampling(const cv::Mat& xyz, int npoints, cv::Mat& out) {
         centroidsData[b * npoints] = maxId;  // first maxId
 
         cv::Mat distance = cv::Mat::ones(1, N, CV_32FC1) * 1e10;
+        // distance.at<float>(0, maxId) = 0.0;
+        // need optimizer: can skip has been select point, set distance[select_pt] = 0
         for (int i = 1; i < npoints; ++i) {
             // select point  xyz(b, maxId, c) c in 0-C
             cv::Mat tmp = cv::Mat::zeros(1, N, distance.type());
             for (int r = 0; r < N; r++) {
+                /*if (0.0 == distance.at<float>(0, r)) {
+                    continue;
+                }*/
                 float sum = 0.0;
                 for (int c = 0; c < C; c++) {
-                    float sub = xyz.ptr<float>(b, r)[c] - xyz.ptr<float>(b, maxId)[c];    // can be optimize by kd_tree
+                    float sub = xyz.ptr<float>(b, r)[c] - xyz.ptr<float>(b, maxId)[c];   
                     sum += sub * sub;
                 }
                 tmp.at<float>(0, r) = sum;
@@ -228,7 +254,7 @@ cv::Mat query_ball_point(float radius, int nsample, cv::Mat xyz, cv::Mat new_xyz
     int N = xyz.size[1];
     int C = xyz.size[2];
     int S = new_xyz.size[1];
-    float refRadius = radius * radius;
+    float refRadius = radius * radius;  // radius;  // 
 
     int resShape[] = {B, S, nsample};
     cv::Mat res = cv::Mat::zeros(3, resShape, CV_32FC1);
@@ -300,7 +326,7 @@ void query_ball_point(const float radius, const int nsample, const cv::Mat& xyz,
     int N = xyz.size[1];
     int C = xyz.size[2];
     int S = new_xyz.size[1];
-    float refRadius = radius * radius;
+    float refRadius = radius* radius; // radius;  // 
 
     int resShape[] = { B, S, nsample };
     
@@ -312,6 +338,12 @@ void query_ball_point(const float radius, const int nsample, const cv::Mat& xyz,
     float* groupIdxData = (float*)groupIdx.data;
 
     int groupId = 0;
+    // slice to 2D Mat
+    cv::Range ranges[3];
+    ranges[0] = cv::Range(0, 1);
+    ranges[1] = cv::Range::all();
+    ranges[2] = cv::Range::all();
+
     for (int b = 0; b < B; ++b) {
         for (int r = 0; r < S; ++r) {
             for (int c = 0; c < N; ++c) {
@@ -325,20 +357,47 @@ void query_ball_point(const float radius, const int nsample, const cv::Mat& xyz,
         }
     }
 
-    // slice to 2D Mat
-    cv::Range ranges[3];
-    ranges[0] = cv::Range(0, 1);
-    ranges[1] = cv::Range::all();
-    ranges[2] = cv::Range::all();
-
     int resId = 0;
     for (int b = 0; b < B; ++b) {
         ranges[0] = cv::Range(b, b + 1);
+
+        //std::chrono::steady_clock::time_point startTime1 = std::chrono::steady_clock::now();
+        //cv::Mat slicexyz1;
+        //slicexyz1 = new_xyz(ranges).clone();
+        //cv::Mat newShape1(2, &(new_xyz.size[1]), new_xyz.type());
+        //slicexyz1.copySize(newShape1);
+
+        //cv::Mat slicexyz2;
+        //slicexyz2 = xyz(ranges).clone();
+        //cv::Mat newShape2(2, &(xyz.size[1]), xyz.type());
+        //slicexyz2.copySize(newShape2);
+
+        //cv::flann::KDTreeIndexParams indexParams(3);
+        //cv::flann::Index kdtree(slicexyz2, indexParams);
+        //cv::flann::SearchParams params(32);
+
+        //// find Mat
+        //cv::Mat indices, flannDists;
+        //for (int sId = 0; sId < slicexyz1.rows; ++sId) {
+        //    kdtree.radiusSearch(slicexyz1.rowRange(sId, sId+1), indices, flannDists, refRadius, N, params);
+        //}
+        //std::chrono::steady_clock::time_point endTime1 = std::chrono::steady_clock::now();
+        //std::chrono::duration<double> time_span1 = endTime1 - startTime1;
+        //std::cout << "kdtree: " << time_span1.count() << " seconds." << std::endl;
+        //// printMat(flannDists);
 
         cv::Mat sliceGroupIdx;
         sliceGroupIdx = groupIdx(ranges).clone();
         cv::Mat newShape(2, &(groupIdx.size[1]), groupIdx.type());
         sliceGroupIdx.copySize(newShape);
+
+        cv::Mat sliceDists;
+        sliceDists = dists(ranges).clone();
+        cv::Mat newShape3(2, &(dists.size[1]), dists.type());
+        sliceDists.copySize(newShape3);
+
+        cv::Mat sortedIdx;
+        cv::sortIdx(sliceDists, sortedIdx, 2);
 
         cv::sort(sliceGroupIdx, sliceGroupIdx, 0);
 
@@ -347,7 +406,7 @@ void query_ball_point(const float radius, const int nsample, const cv::Mat& xyz,
         for (int r = 0; r < tempGroup.rows; ++r) {
             for (int c = 0; c < tempGroup.cols; ++c) {
                 if (tempGroup.at<float>(r, c) == N) {
-                    resData[resId++] = tempGroup.at<float>(r, 0);
+                    resData[resId++] = tempGroup.at<float>(r, 0) == N ? sortedIdx.at<int>(r, 0) : tempGroup.at<float>(r, 0);
                 }
                 else {
                     resData[resId++] = tempGroup.at<float>(r, c);
@@ -413,16 +472,16 @@ void index_points(const cv::Mat& points, const cv::Mat& idx, cv::Mat& out, int c
 
 
 void propagation_data_process(const cv::Mat& xyz1, const cv::Mat& xyz2, const cv::Mat& points1, const cv::Mat& points2, cv::Mat& out) {
+
     assert(xyz1.size[0] == xyz2.size[0] && xyz2.size[0] == points1.size[0] && points1.size[0] == points2.size[0]);
-    cv::Mat dists = square_distance(xyz1, xyz2);  // B * N * M
    
-    int B = dists.size[0];
-    int N = dists.size[1];
-    int M = dists.size[2];
+    int B = xyz1.size[0];
+    int N = xyz1.size[1];
+    int M = xyz2.size[1];
     int shape[] = { B, N, 3 };
-    cv::Mat idx = cv::Mat::zeros(3, shape, dists.type());
+    cv::Mat idx = cv::Mat::zeros(3, shape, xyz1.type());
     float* idxData = (float*)idx.data;
-    cv::Mat weights = cv::Mat::zeros(3, shape, dists.type());
+    cv::Mat weights = cv::Mat::zeros(3, shape, xyz1.type());
     float* weightsData = (float*)weights.data;
 
     // slice to 2D Mat
@@ -430,6 +489,10 @@ void propagation_data_process(const cv::Mat& xyz1, const cv::Mat& xyz2, const cv
     ranges[0] = cv::Range(0, 1);
     ranges[1] = cv::Range::all();
     ranges[2] = cv::Range::all();
+
+    // >>>***** method1 loop
+    /*
+    cv::Mat dists = square_distance(xyz1, xyz2);  // B * N * M
 
     for (int b = 0; b < B; ++b) {
         ranges[0] = cv::Range(b, b + 1);
@@ -445,7 +508,40 @@ void propagation_data_process(const cv::Mat& xyz1, const cv::Mat& xyz2, const cv
 
         sortIdx = sortIdx(cv::Range::all(), cv::Range(0, 3));
         sliceDist = sliceDist(cv::Range::all(), cv::Range(0, 3));
-        
+    */
+    // <<< *****
+
+    // >>>***** method2 flann
+    for (int b = 0; b < B; ++b) {
+        ranges[0] = cv::Range(b, b + 1);
+
+        cv::Mat slicexyz1;
+        slicexyz1 = xyz1(ranges).clone();
+        cv::Mat newShape1(2, &(xyz1.size[1]), xyz1.type());
+        slicexyz1.copySize(newShape1);
+
+        cv::Mat slicexyz2;
+        slicexyz2 = xyz2(ranges).clone();
+        cv::Mat newShape2(2, &(xyz2.size[1]), xyz2.type());
+        slicexyz2.copySize(newShape2);
+
+        cv::flann::KDTreeIndexParams indexParams(3);
+        cv::flann::Index kdtree(slicexyz2, indexParams);
+
+        int k = 3;
+        cv::flann::SearchParams params(32);
+        //// find query
+        //std::vector<float> vecQuery = { 0.1, 0.3, 0.4 };
+        //std::vector<int> vecIndex(k);
+        //std::vector<float> vecDist(k);
+        //cv::flann::SearchParams params(32);
+        //kdtree.knnSearch(vecQuery, vecIndex, vecDist, k, params);  // radiusSearch
+
+        // find Mat
+        cv::Mat sortIdx, sliceDist;
+        kdtree.knnSearch(slicexyz1, sortIdx, sliceDist, k, params);
+        // <<< *****
+
         cv::Mat dist_recip = 1.0 / (sliceDist + 1e-8);
         cv::Mat norm;
         cv::reduce(dist_recip, norm, 1, cv::REDUCE_SUM);
@@ -535,6 +631,7 @@ bool readFile(std::string dataPath, std::vector<std::vector<float> >& points, bo
     while (std::getline(infile, s)) {
         data.push_back(s);
     }
+    infile.close();
 
     std::string suffix = dataPath.substr(dataPath.find_last_of('.') + 1);
     if (suffix == "txt" || suffix == "pts") {
@@ -619,6 +716,8 @@ bool PreProcess(std::vector<std::vector<float> >& points, std::vector<int>& ids)
         newPoints.push_back(points[ids[i]]);
     }
     points.swap(newPoints);
+
+    return true;
 }
 
 
@@ -771,7 +870,11 @@ public:
         cv::Mat& out = outputs[0];
 
         // implement fps by C++
+        std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
         farthest_point_sampling(inp, nPoint, out);  // need to optimize
+        std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
+        std::chrono::duration<double> time_span = endTime - startTime;
+        std::cout << "farthest point sampling: " << time_span.count() << " seconds." << std::endl;
         //printMat(out);
     }
 private:
@@ -828,7 +931,12 @@ public:
         cv::Mat& inp = inputs[0];   // B * N * 3
         cv::Mat& idx = inputs[1];   // B * S
         cv::Mat& out = outputs[0];
+
+        std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
         index_points(inp, idx, out, inp.size[2]);
+        std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
+        std::chrono::duration<double> time_span = endTime - startTime;
+        std::cout << "index pts: " << time_span.count() << " seconds." << std::endl;
         //printMat(out);
     }
 private:
@@ -887,7 +995,11 @@ public:
         cv::Mat& out = outputs[0];
 
         //Implement the index points
+        std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
         query_ball_point(radius, nsample, xyz, new_xyz, out);
+        std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
+        std::chrono::duration<double> time_span = endTime - startTime;
+        std::cout << "query ball point: " << time_span.count() << " seconds." << std::endl;
         //printMat(out);
     }
 private:
@@ -1113,8 +1225,12 @@ public:
         cv::Mat& points2 = inputs[3];
 
         cv::Mat& out = outputs[0];
-       
+
+        std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
         propagation_data_process(xyz1, xyz2, points1, points2, out);
+        std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
+        std::chrono::duration<double> time_span = endTime - startTime;
+        std::cout << "propagation data process: " << time_span.count() << " seconds." << std::endl;
         // printMat(out);
     }
 };
@@ -1221,6 +1337,235 @@ private:
 };
 
 
+void testFlannKnnSearch(const cv::Mat& xyz1, const cv::Mat& xyz2) {
+
+    cv::Mat dists = square_distance(xyz1, xyz2);  // B * N * M
+
+    int B = dists.size[0];
+    int N = dists.size[1];
+    int M = dists.size[2];
+    int shape[] = { B, N, 3 };
+    cv::Mat idx = cv::Mat::zeros(3, shape, dists.type());
+    float* idxData = (float*)idx.data;
+    cv::Mat weights = cv::Mat::zeros(3, shape, dists.type());
+    float* weightsData = (float*)weights.data;
+
+    // slice to 2D Mat
+    cv::Range ranges[3];
+    ranges[0] = cv::Range(0, 1);
+    ranges[1] = cv::Range::all();
+    ranges[2] = cv::Range::all();
+
+    for (int b = 0; b < B; ++b) {
+        ranges[0] = cv::Range(b, b + 1);
+
+        cv::Mat sliceDist;
+        sliceDist = dists(ranges).clone();
+        cv::Mat newShape(2, &(dists.size[1]), dists.type());
+        sliceDist.copySize(newShape);
+
+        cv::Mat sortIdx;
+        cv::sortIdx(sliceDist, sortIdx, 2);
+        cv::sort(sliceDist, sliceDist, 2);
+
+        sortIdx = sortIdx(cv::Range::all(), cv::Range(0, 3));
+        sliceDist = sliceDist(cv::Range::all(), cv::Range(0, 3));
+        printMat(sliceDist);
+
+        cv::Mat dist_recip = 1.0 / (sliceDist + 1e-8);
+        cv::Mat norm;
+        cv::reduce(dist_recip, norm, 1, cv::REDUCE_SUM);
+
+        int weightId = 0;
+        for (int r = 0; r < dist_recip.rows; ++r) {
+            for (int c = 0; c < dist_recip.cols; ++c) {
+                weightsData[weightId++] = dist_recip.at<float>(r, c) / norm.at<float>(r);
+            }
+        }
+
+        int idxId = 0;
+        for (int i = 0; i < sortIdx.rows; ++i) {
+            for (int j = 0; j < sortIdx.cols; ++j) {
+                idxData[idxId++] = sortIdx.at<int>(i, j);
+            }
+        }
+    }
+    printMat(idx);
+
+    for (int b = 0; b < B; ++b) {
+        ranges[0] = cv::Range(b, b + 1);
+
+        cv::Mat slicexyz1;
+        slicexyz1 = xyz1(ranges).clone();
+        cv::Mat newShape1(2, &(xyz1.size[1]), xyz1.type());
+        slicexyz1.copySize(newShape1);
+
+        cv::Mat slicexyz2;
+        slicexyz2 = xyz2(ranges).clone();
+        cv::Mat newShape2(2, &(xyz2.size[1]), xyz2.type());
+        slicexyz2.copySize(newShape2);
+
+        cv::flann::KDTreeIndexParams indexParams(3);
+        cv::flann::Index kdtree(slicexyz2, indexParams);
+
+        int k = 3;
+        cv::flann::SearchParams params(32);
+        //// find query
+        //std::vector<float> vecQuery = { 0.1, 0.3, 0.4 };
+        //std::vector<int> vecIndex(k);
+        //std::vector<float> vecDist(k);
+        //cv::flann::SearchParams params(32);
+        //kdtree.knnSearch(vecQuery, vecIndex, vecDist, k, params);  // radiusSearch
+
+        // find Mat
+        cv::Mat indices, flannDists;
+        kdtree.knnSearch(slicexyz1, indices, flannDists, k, params);
+        printMat(indices);
+        printMat(flannDists);
+    }
+
+}
+
+cv::Mat testFlannRadiusSearch(const float radius, const int nsample, const cv::Mat& xyz, const cv::Mat& new_xyz) {
+    int B = xyz.size[0];
+    int N = xyz.size[1];
+    int C = xyz.size[2];
+    int S = new_xyz.size[1];
+    float refRadius = radius * radius; // radius;  // 
+
+    int resShape[] = { B, S, nsample };
+
+    cv::Mat out(3, resShape, xyz.type());
+    float* resData = (float*)out.data;
+
+    cv::Mat dists = square_distance(new_xyz, xyz);
+    printMat(dists);
+    int groupShape[] = { B, S, N };
+    cv::Mat groupIdx = cv::Mat::zeros(3, groupShape, CV_32FC1);
+    float* groupIdxData = (float*)groupIdx.data;
+
+    int groupId = 0;
+    for (int b = 0; b < B; ++b) {
+        for (int r = 0; r < S; ++r) {
+            for (int c = 0; c < N; ++c) {
+                if (dists.at<float>(b, r, c) > refRadius) {
+                    groupIdxData[groupId++] = N;
+                }
+                else {
+                    groupIdxData[groupId++] = c;
+                }
+            }
+        }
+    }
+
+    // slice to 2D Mat
+    cv::Range ranges[3];
+    ranges[0] = cv::Range(0, 1);
+    ranges[1] = cv::Range::all();
+    ranges[2] = cv::Range::all();
+
+    int resId = 0;
+    for (int b = 0; b < B; ++b) {
+        ranges[0] = cv::Range(b, b + 1);
+
+        cv::Mat sliceGroupIdx;
+        sliceGroupIdx = groupIdx(ranges).clone();
+        cv::Mat newShape(2, &(groupIdx.size[1]), groupIdx.type());
+        sliceGroupIdx.copySize(newShape);
+
+        cv::Mat sliceDists;
+        sliceDists = dists(ranges).clone();
+        cv::Mat newShape3(2, &(dists.size[1]), dists.type());
+        sliceDists.copySize(newShape3);
+
+        cv::Mat sortedIdx;
+        cv::sortIdx(sliceDists, sortedIdx, 2);
+
+        cv::sort(sliceGroupIdx, sliceGroupIdx, 0);
+        cv::Mat tempGroup = sliceGroupIdx(cv::Range::all(), cv::Range(0, nsample));
+
+        for (int r = 0; r < tempGroup.rows; ++r) {
+            for (int c = 0; c < tempGroup.cols; ++c) {
+                if (tempGroup.at<float>(r, c) == N) {
+                    resData[resId++] = tempGroup.at<float>(r, 0) == N ? sortedIdx.at<int>(r, 0) : tempGroup.at<float>(r, 0);
+                }
+                else {
+                    resData[resId++] = tempGroup.at<float>(r, c);
+                }
+            }
+        }
+    }
+
+    printMat(out);
+
+    // flann radiiusSearch
+    // TODO: need judge the indices.size() == nsample?
+    groupId = 0;
+    for (int b = 0; b < B; ++b) {
+        ranges[0] = cv::Range(b, b + 1);
+
+        cv::Mat slicexyz;
+        slicexyz = xyz(ranges).clone();
+        cv::Mat newShape1(2, &(xyz.size[1]), xyz.type());
+        slicexyz.copySize(newShape1);
+        printMat(slicexyz);
+
+        cv::Mat sliceNewxyz;
+        sliceNewxyz = new_xyz(ranges).clone();
+        cv::Mat newShape2(2, &(new_xyz.size[1]), new_xyz.type());
+        sliceNewxyz.copySize(newShape2);
+        printMat(sliceNewxyz);
+        
+        cv::flann::KDTreeIndexParams indexParams(3);
+        cv::flann::Index kdtree(slicexyz, indexParams);
+
+        cv::flann::SearchParams params(32);
+
+        for(int sId = 0; sId < sliceNewxyz.rows; ++sId){
+            //cv::Mat indices, Flanndists;
+            cv::Mat indices = cv::Mat::ones(1, slicexyz.rows, slicexyz.type()) * N;
+            cv::Mat Flanndists = cv::Mat::zeros(1, slicexyz.rows, slicexyz.type());
+            kdtree.radiusSearch(sliceNewxyz.rowRange(sId, sId + 1), indices, Flanndists, radius * radius, slicexyz.rows, params);
+            printMat(Flanndists);
+            printMat(indices);
+            // 需要判断个数是否满足要求的 不足填充第一个  为空则填充最近的kdtree.knnSearch(k=1)
+            std::vector<float> selectIds;
+            for (int r = 0; r < slicexyz.rows; ++r) {
+                if (Flanndists.at<float>(0, r) <= 0 || Flanndists.at<float>(0, r) > refRadius) {
+                    break;
+                }
+                selectIds.push_back(indices.at<int>(0, r));
+            }
+            if (0 == selectIds.size()) {
+                cv::Mat tmpIndices, tmpDists;
+                kdtree.knnSearch(sliceNewxyz.rowRange(sId, sId + 1), tmpIndices, tmpDists, 1, params);
+                std::cout << " ***: ";
+                printMat(tmpIndices);
+                for (int n = 0; n < nsample; ++n) {
+                    resData[resId++] = tmpIndices.at<int>(0);
+                }
+
+            }
+            else if (selectIds.size() < nsample) {
+                std::cout << " ***: " << selectIds[0] << std::endl;
+                for (int n = 0; n < nsample; ++n) {
+                    resData[resId++] = selectIds[0];
+                }
+            }
+            else {
+                std::sort(selectIds.begin(), selectIds.end());
+                for (int n = 0; n < nsample; ++n) {
+                    resData[resId++] = selectIds[n];
+                }
+            }
+        }
+
+    }
+    std::cout << "*****";
+    printMat(out);
+    return out;
+}
+
 int main(int argc, char* argv[])
 {
 
@@ -1235,43 +1580,23 @@ int main(int argc, char* argv[])
     ////cv::Mat xyz(testData);
     ////xyz = xyz.reshape(0, xyzShape);*/
 
-    //cv::Mat xyz1 = (cv::Mat_<float>(8, 3) << 0.2901, 1.2105, -1.2701, 1.6728, 0.1126, 0.2237, -0.2826, -0.4668, -0.7778, 0.3933, -1.8726, -0.2206,
-    //    0.8394, 0.6340, -0.3097, 0.2373, -1.2495, 0.7897, 0.1440, -0.8319, -2.0404, -1.2246, 0.3089, -0.0196);
-    //xyz1 = xyz1.reshape(0, { 1, 8, 3 });
+    cv::Mat xyz1 = (cv::Mat_<float>(8, 3) << 0.2901, 1.2105, -1.2701, 1.6728, 0.1126, 0.2237, -0.2826, -0.4668, -0.7778, 0.3933, -1.8726, -0.2206,
+        0.8394, 0.6340, -0.3097, 0.2373, -1.2495, 0.7897, 0.1440, -0.8319, -2.0404, -1.2246, 0.3089, -0.0196);
+    xyz1 = xyz1.reshape(0, { 1, 8, 3 });
+    cv::Mat xyz2 = (cv::Mat_<float>(5, 3) << -0.0043, 1.3982, -1.2204, -0.6885, 0.4035, -2.2926, -0.9572, 0.5397, -1.3338, 1.5315, -1.9127, -0.2904, 1.4844, -0.5510, -2.4500);   // 
+    xyz2 = xyz2.reshape(0, { 1, 5, 3 });
+    printMat(xyz1);
+    printMat(xyz2);
 
-    //cv::Mat xyz2 = (cv::Mat_<float>(5, 3) << -0.0043, 1.3982, -1.2204, -0.6885, 0.4035, -2.2926,
-    //    -0.9572, 0.5397, -1.3338, 1.5315, -1.9127, -0.2904, 1.4844, -0.5510, -2.4500);
-    //xyz2 = xyz2.reshape(0, { 1, 3, 5 });
-
-    //printMat(xyz1);
-    //printMat(xyz2);
-
-    //std::vector<int> catShape;
-    //catShape.push_back(xyz1.size[0]);
-    //catShape.push_back(xyz1.size[2]);
-    //catShape.push_back(xyz1.size[1] + xyz2.size[2]);
-
-    //std::vector<int> testShape = { 1, 1, 3, 13 };
-    //cv::Mat testRes(4, testShape.data(), xyz1.type());
-    //float* catData = (float*)testRes.data;
-    //int catId = 0;
-    //for (int b = 0; b < catShape[0]; ++b) {
-    //    for (int n = 0; n < catShape[1]; ++n) {
-    //        for (int r = 0; r < xyz1.size[1]; ++r) {
-    //            catData[catId++] = xyz1.at<float>(b, r, n);
-    //        }
-    //        for (int c = 0; c < xyz2.size[2]; ++c) {
-    //            catData[catId++] = xyz2.ptr<float>(b, n)[c];
-    //        }
-    //    }
-    //}
-    //printMat(testRes);
-    //
-    //std::cout << "$$$$$$$$" << std::endl;
+    //testFlannKnnSearch(xyz1, xyz2);
+    cv::Mat idx = testFlannRadiusSearch(1.5, 2, xyz1, xyz2);
+    cv::Mat idxRes = index_points(xyz1, idx, xyz1.size[2]);
+   
+    std::cout << "$$$$$$$$" << std::endl;
     
     
     // load data
-    std::string dataPath = "D:/Debug_dir/inputs.pts";  // "D:/Debug_dir/news_data/pcd_label_normal/bankou (1)_minCruv.pcd";  // argv[1]
+    std::string dataPath = "D:/Debug_dir/news_data/pcd_label_normal/bankou (1)_minCruv.pcd";  // argv[1] "D:/Debug_dir/inputs.pts";  // 
 
     std::vector<std::vector<float> > points;                // N * 3
     if (!readFile(dataPath, points)) {
@@ -1280,11 +1605,8 @@ int main(int argc, char* argv[])
     
     // preprocess data
     std::vector<int> ids;
-    /*if (!PreProcess(points, ids)) {
+    if (!PreProcess(points, ids)) {
         return -1;
-    }*/
-    for (int i = 0; i < points.size(); ++i) {
-        ids.push_back(i);
     }
 
     cv::Mat datas(points.at(0).size(), points.size(), CV_32FC1);  // 3 * N
@@ -1317,16 +1639,22 @@ int main(int argc, char* argv[])
     CV_DNN_REGISTER_LAYER_CLASS(propagatedata, PropagateDataLayer);
     CV_DNN_REGISTER_LAYER_CLASS(get_cate, GetCateLayer);
     cv::dnn::Net net = cv::dnn::readNetFromONNX(modelPath);
+    net.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
+    net.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA);
 
     std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
 
-    net.setInput(datas, "points");
-
-    cv::Mat res = net.forward();
+    cv::Mat res;
+    int nLoop = 1;
+    for (int i = 0; i < nLoop; ++i) {
+        std::cout << "predict " << i << " time" << std::endl;
+        net.setInput(datas, "points");
+        res = net.forward();
+    }
     
     std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_span = endTime - startTime;
-    std::cout << "all code took " << time_span.count() << " seconds." << std::endl;
+    std::cout << "all code took " << time_span.count() / nLoop << " seconds." << std::endl;
 
     int nRes = res.total();
     printMat(res);
