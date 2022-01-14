@@ -157,6 +157,50 @@ def sample_and_group(npoint: int, radius: float, nsample: int, xyz, points):
     return new_xyz, new_points
 
 
+# self.sa3 = PointNetSetAbstraction(npoint=256, radius=5.0, nsample=256, in_channel=512 + 3, mlp=[256, 512, 1024], group_all=True)
+class PointNetSetAbstraction1(nn.Module):
+    def __init__(self, npoint: int, radius: float, nsample: int, in_channel, mlp, group_all):
+        super(PointNetSetAbstraction1, self).__init__()
+        self.npoint = npoint
+        self.radius = radius
+        self.nsample = nsample
+        self.mlp_convs_0 = nn.Conv2d(in_channel, mlp[0], 1)
+        self.mlp_bns_0 = nn.BatchNorm2d(mlp[0])
+        self.mlp_convs_1 = nn.Conv2d(mlp[0], mlp[1], 1)
+        self.mlp_bns_1 = nn.BatchNorm2d(mlp[1])
+        self.mlp_convs_2 = nn.Conv2d(mlp[1], mlp[2], 1)
+        self.mlp_bns_2 = nn.BatchNorm2d(mlp[2])
+        self.group_all = group_all
+
+    def forward(self, xyz, points):
+        """
+        Input:
+            xyz: input points position data, [B, C, N]
+            points: input points data, [B, D, N]
+        Return:
+            new_xyz: sampled points position data, [B, C, S]
+            new_points_concat: sample points feature data, [B, D', S]
+        """
+        xyz = xyz.permute(0, 2, 1)
+        if points is not None:
+            points = points.permute(0, 2, 1)
+
+        if self.group_all:
+            new_xyz, new_points = sample_and_group_all(xyz, points)
+        else:
+            new_xyz, new_points = sample_and_group(self.npoint, self.radius, self.nsample, xyz, points)
+        # new_xyz: sampled points position data, [B, npoint, C]
+        # new_points: sampled points data, [B, npoint, nsample, C+D]
+        new_points = new_points.permute(0, 3, 2, 1)   # [B, C+D, nsample, npoint]
+        new_points = F.relu(self.mlp_bns_0(self.mlp_convs_0(new_points)))
+        new_points = F.relu(self.mlp_bns_1(self.mlp_convs_1(new_points)))
+        new_points = F.relu(self.mlp_bns_2(self.mlp_convs_2(new_points)))
+
+        new_points = torch.max(new_points, 2)[0]
+        new_xyz = new_xyz.permute(0, 2, 1)
+        return new_xyz, new_points
+
+
 class PointNetSetAbstraction(nn.Module):
     def __init__(self, npoint: int, radius: float, nsample: int, in_channel, mlp, group_all):
         super(PointNetSetAbstraction, self).__init__()
@@ -200,6 +244,193 @@ class PointNetSetAbstraction(nn.Module):
         return new_xyz, new_points
 
 
+# self.sa1 = PointNetSetAbstractionMsg(1024, [0.1, 0.2, 0.4], [32, 64, 128], 3 + additional_channel, [[32, 32, 64], [64, 64, 128], [64, 96, 128]])
+class PointNetSetAbstractionMsg1(nn.Module):
+    def __init__(self, npoint: int, radius_list, nsample_list, in_channel, mlp_list):
+        super(PointNetSetAbstractionMsg1, self).__init__()
+        self.npoint = npoint
+        self.radius_list = radius_list
+        self.nsample_list = nsample_list
+
+        self.conv_blocks_0_0 = nn.Conv2d(in_channel + 3, mlp_list[0][0], 1)
+        self.bn_blocks_0_0 = nn.BatchNorm2d(mlp_list[0][0])
+        self.conv_blocks_0_1 = nn.Conv2d(mlp_list[0][0], mlp_list[0][1], 1)
+        self.bn_blocks_0_1 = nn.BatchNorm2d(mlp_list[0][1])
+        self.conv_blocks_0_2 = nn.Conv2d(mlp_list[0][1], mlp_list[0][2], 1)
+        self.bn_blocks_0_2 = nn.BatchNorm2d(mlp_list[0][2])
+        self.radius_0 = radius_list[0]
+        self.nsample_0 = nsample_list[0]
+
+        self.conv_blocks_1_0 = nn.Conv2d(in_channel + 3, mlp_list[1][0], 1)
+        self.bn_blocks_1_0 = nn.BatchNorm2d(mlp_list[1][0])
+        self.conv_blocks_1_1 = nn.Conv2d(mlp_list[1][0], mlp_list[1][1], 1)
+        self.bn_blocks_1_1 = nn.BatchNorm2d(mlp_list[1][1])
+        self.conv_blocks_1_2 = nn.Conv2d(mlp_list[1][1], mlp_list[1][2], 1)
+        self.bn_blocks_1_2 = nn.BatchNorm2d(mlp_list[1][2])
+        self.radius_1 = radius_list[1]
+        self.nsample_1 = nsample_list[1]
+
+        self.conv_blocks_2_0 = nn.Conv2d(in_channel + 3, mlp_list[2][0], 1)
+        self.bn_blocks_2_0 = nn.BatchNorm2d(mlp_list[2][0])
+        self.conv_blocks_2_1 = nn.Conv2d(mlp_list[2][0], mlp_list[2][1], 1)
+        self.bn_blocks_2_1 = nn.BatchNorm2d(mlp_list[2][1])
+        self.conv_blocks_2_2 = nn.Conv2d(mlp_list[2][1], mlp_list[2][2], 1)
+        self.bn_blocks_2_2 = nn.BatchNorm2d(mlp_list[2][2])
+        self.radius_2 = radius_list[2]
+        self.nsample_2 = nsample_list[2]
+
+    def forward(self, xyz, points):
+        """
+        Input:
+            xyz: input points position data, [B, C, N]
+            points: input points data, [B, D, N]
+        Return:
+            new_xyz: sampled points position data, [B, C, S]
+            new_points_concat: sample points feature data, [B, D', S]
+        """
+        xyz = xyz.permute(0, 2, 1)
+        if points is not None:
+            points = points.permute(0, 2, 1)
+
+        B, N, C = xyz.shape
+        S = self.npoint
+        new_xyz = index_points(xyz, farthest_point_sample(xyz, S))    # 得到最新采样的点
+        new_points_list = []
+
+        group_idx = query_ball_point(self.radius_0, self.nsample_0, xyz, new_xyz)
+        grouped_xyz = index_points(xyz, group_idx)
+        grouped_xyz -= new_xyz.view(B, S, 1, C)
+        if points is not None:
+            grouped_points = index_points(points, group_idx)
+            grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
+        else:
+            grouped_points = grouped_xyz
+
+        grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
+        grouped_points = F.relu(self.bn_blocks_0_0(self.conv_blocks_0_0(grouped_points)))
+        grouped_points = F.relu(self.bn_blocks_0_1(self.conv_blocks_0_1(grouped_points)))
+        grouped_points = F.relu(self.bn_blocks_0_2(self.conv_blocks_0_2(grouped_points)))
+        new_points = torch.max(grouped_points, 2)[0]  # [B, D', S]
+        new_points_list.append(new_points)
+
+        group_idx = query_ball_point(self.radius_1, self.nsample_1, xyz, new_xyz)
+        grouped_xyz = index_points(xyz, group_idx)
+        grouped_xyz -= new_xyz.view(B, S, 1, C)
+        if points is not None:
+            grouped_points = index_points(points, group_idx)
+            grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
+        else:
+            grouped_points = grouped_xyz
+
+        grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
+        grouped_points = F.relu(self.bn_blocks_1_0(self.conv_blocks_1_0(grouped_points)))
+        grouped_points = F.relu(self.bn_blocks_1_1(self.conv_blocks_1_1(grouped_points)))
+        grouped_points = F.relu(self.bn_blocks_1_2(self.conv_blocks_1_2(grouped_points)))
+        new_points = torch.max(grouped_points, 2)[0]  # [B, D', S]
+        new_points_list.append(new_points)
+
+        group_idx = query_ball_point(self.radius_2, self.nsample_2, xyz, new_xyz)
+        grouped_xyz = index_points(xyz, group_idx)
+        grouped_xyz -= new_xyz.view(B, S, 1, C)
+        if points is not None:
+            grouped_points = index_points(points, group_idx)
+            grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
+        else:
+            grouped_points = grouped_xyz
+
+        grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
+        grouped_points = F.relu(self.bn_blocks_2_0(self.conv_blocks_2_0(grouped_points)))
+        grouped_points = F.relu(self.bn_blocks_2_1(self.conv_blocks_2_1(grouped_points)))
+        grouped_points = F.relu(self.bn_blocks_2_2(self.conv_blocks_2_2(grouped_points)))
+        new_points = torch.max(grouped_points, 2)[0]  # [B, D', S]
+        new_points_list.append(new_points)
+
+        new_xyz = new_xyz.permute(0, 2, 1)
+        new_points_concat = torch.cat(new_points_list, dim=1)
+        return new_xyz, new_points_concat
+
+
+# self.sa2 = PointNetSetAbstractionMsg(256, [0.4, 0.8], [64, 128], 128+128+64, [[128, 128, 256], [128, 196, 256]])
+class PointNetSetAbstractionMsg2(nn.Module):
+    def __init__(self, npoint: int, radius_list, nsample_list, in_channel, mlp_list):
+        super(PointNetSetAbstractionMsg2, self).__init__()
+        self.npoint = npoint
+        self.radius_list = radius_list
+        self.nsample_list = nsample_list
+
+        self.conv_blocks_0_0 = nn.Conv2d(in_channel + 3, mlp_list[0][0], 1)
+        self.bn_blocks_0_0 = nn.BatchNorm2d(mlp_list[0][0])
+        self.conv_blocks_0_1 = nn.Conv2d(mlp_list[0][0], mlp_list[0][1], 1)
+        self.bn_blocks_0_1 = nn.BatchNorm2d(mlp_list[0][1])
+        self.conv_blocks_0_2 = nn.Conv2d(mlp_list[0][1], mlp_list[0][2], 1)
+        self.bn_blocks_0_2 = nn.BatchNorm2d(mlp_list[0][2])
+        self.radius_0 = radius_list[0]
+        self.nsample_0 = nsample_list[0]
+
+        self.conv_blocks_1_0 = nn.Conv2d(in_channel + 3, mlp_list[1][0], 1)
+        self.bn_blocks_1_0 = nn.BatchNorm2d(mlp_list[1][0])
+        self.conv_blocks_1_1 = nn.Conv2d(mlp_list[1][0], mlp_list[1][1], 1)
+        self.bn_blocks_1_1 = nn.BatchNorm2d(mlp_list[1][1])
+        self.conv_blocks_1_2 = nn.Conv2d(mlp_list[1][1], mlp_list[1][2], 1)
+        self.bn_blocks_1_2 = nn.BatchNorm2d(mlp_list[1][2])
+        self.radius_1 = radius_list[1]
+        self.nsample_1 = nsample_list[1]
+
+    def forward(self, xyz, points):
+        """
+        Input:
+            xyz: input points position data, [B, C, N]
+            points: input points data, [B, D, N]
+        Return:
+            new_xyz: sampled points position data, [B, C, S]
+            new_points_concat: sample points feature data, [B, D', S]
+        """
+        xyz = xyz.permute(0, 2, 1)
+        if points is not None:
+            points = points.permute(0, 2, 1)
+
+        B, N, C = xyz.shape
+        S = self.npoint
+        new_xyz = index_points(xyz, farthest_point_sample(xyz, S))    # 得到最新采样的点
+        new_points_list = []
+
+        group_idx = query_ball_point(self.radius_0, self.nsample_0, xyz, new_xyz)
+        grouped_xyz = index_points(xyz, group_idx)
+        grouped_xyz -= new_xyz.view(B, S, 1, C)
+        if points is not None:
+            grouped_points = index_points(points, group_idx)
+            grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
+        else:
+            grouped_points = grouped_xyz
+
+        grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
+        grouped_points = F.relu(self.bn_blocks_0_0(self.conv_blocks_0_0(grouped_points)))
+        grouped_points = F.relu(self.bn_blocks_0_1(self.conv_blocks_0_1(grouped_points)))
+        grouped_points = F.relu(self.bn_blocks_0_2(self.conv_blocks_0_2(grouped_points)))
+        new_points = torch.max(grouped_points, 2)[0]  # [B, D', S]
+        new_points_list.append(new_points)
+
+        group_idx = query_ball_point(self.radius_1, self.nsample_1, xyz, new_xyz)
+        grouped_xyz = index_points(xyz, group_idx)
+        grouped_xyz -= new_xyz.view(B, S, 1, C)
+        if points is not None:
+            grouped_points = index_points(points, group_idx)
+            grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
+        else:
+            grouped_points = grouped_xyz
+
+        grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
+        grouped_points = F.relu(self.bn_blocks_1_0(self.conv_blocks_1_0(grouped_points)))
+        grouped_points = F.relu(self.bn_blocks_1_1(self.conv_blocks_1_1(grouped_points)))
+        grouped_points = F.relu(self.bn_blocks_1_2(self.conv_blocks_1_2(grouped_points)))
+        new_points = torch.max(grouped_points, 2)[0]  # [B, D', S]
+        new_points_list.append(new_points)
+
+        new_xyz = new_xyz.permute(0, 2, 1)
+        new_points_concat = torch.cat(new_points_list, dim=1)
+        return new_xyz, new_points_concat
+
+
 class PointNetSetAbstractionMsg(nn.Module):
     def __init__(self, npoint: int, radius_list, nsample_list, in_channel, mlp_list):
         super(PointNetSetAbstractionMsg, self).__init__()
@@ -211,7 +442,7 @@ class PointNetSetAbstractionMsg(nn.Module):
         for i in range(len(mlp_list)):
             convs = nn.ModuleList()
             bns = nn.ModuleList()
-            last_channel = in_channel + 3      # ??? due to points?
+            last_channel = in_channel + 3
             for out_channel in mlp_list[i]:
                 convs.append(nn.Conv2d(last_channel, out_channel, 1))
                 bns.append(nn.BatchNorm2d(out_channel))
@@ -238,6 +469,7 @@ class PointNetSetAbstractionMsg(nn.Module):
         new_points_list = []
 
         i = 0
+
         for conv_blocks, bn_blocks in zip(self.conv_blocks, self.bn_blocks):
             radius = self.radius_list[i]
             K = self.nsample_list[i]
@@ -251,6 +483,7 @@ class PointNetSetAbstractionMsg(nn.Module):
                 grouped_points = grouped_xyz
 
             grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
+
             for conv, bn in zip(conv_blocks, bn_blocks):
                 # conv = self.conv_blocks[i][j]
                 # bn = self.bn_blocks[i][j]
@@ -262,6 +495,103 @@ class PointNetSetAbstractionMsg(nn.Module):
         new_xyz = new_xyz.permute(0, 2, 1)
         new_points_concat = torch.cat(new_points_list, dim=1)
         return new_xyz, new_points_concat
+
+
+# self.fp3 = PointNetFeaturePropagation(in_channel=1536, mlp=[256, 256])
+class PointNetFeaturePropagation0(nn.Module):
+    def __init__(self, in_channel, mlp):
+        super(PointNetFeaturePropagation0, self).__init__()
+        self.mlp_convs_0 = nn.Conv1d(in_channel, mlp[0], 1)
+        self.mlp_bns_0 = nn.BatchNorm1d(mlp[0])
+        self.mlp_convs_1 = nn.Conv1d(mlp[0], mlp[1], 1)
+        self.mlp_bns_1 = nn.BatchNorm1d(mlp[1])
+
+    def forward(self, xyz1, xyz2, points1, points2):
+        """
+        Input:
+            xyz1: input points position data, [B, C, N]
+            xyz2: sampled input points position data, [B, C, S]
+            points1: input points data, [B, D, N]
+            points2: input points data, [B, D, S]
+        Return:
+            new_points: upsampled points data, [B, D', N]
+        """
+        xyz1 = xyz1.permute(0, 2, 1)
+        xyz2 = xyz2.permute(0, 2, 1)
+
+        points2 = points2.permute(0, 2, 1)
+        B, N, C = xyz1.shape
+        _, S, _ = xyz2.shape
+        # print("type S: ", type(S), S, isinstance(S, int), torch.is_tensor(S))
+        interpolated_points = points2.repeat(1, N, 1)
+
+        if points1 is not None:
+            points1 = points1.permute(0, 2, 1)
+            new_points = torch.cat([points1, interpolated_points], dim=-1)
+        else:
+            new_points = interpolated_points
+
+        new_points = new_points.permute(0, 2, 1)
+        # for conv, bn in zip(self.mlp_convs, self.mlp_bns):
+        #     new_points = F.relu(bn(conv(new_points)))
+        new_points = F.relu(self.mlp_bns_0(self.mlp_convs_0(new_points)))
+        new_points = F.relu(self.mlp_bns_1(self.mlp_convs_1(new_points)))
+        return new_points
+
+
+class PointNetFeaturePropagation1(nn.Module):
+    def __init__(self, in_channel, mlp):
+        super(PointNetFeaturePropagation1, self).__init__()
+        # self.mlp_convs = nn.ModuleList()
+        # self.mlp_bns = nn.ModuleList()
+        # last_channel = in_channel
+        # for out_channel in mlp:
+        #     self.mlp_convs.append(nn.Conv1d(last_channel, out_channel, 1))
+        #     self.mlp_bns.append(nn.BatchNorm1d(out_channel))
+        #     last_channel = out_channel
+        self.mlp_convs_0 = nn.Conv1d(in_channel, mlp[0], 1)
+        self.mlp_bns_0 = nn.BatchNorm1d(mlp[0])
+        self.mlp_convs_1 = nn.Conv1d(mlp[0], mlp[1], 1)
+        self.mlp_bns_1 = nn.BatchNorm1d(mlp[1])
+
+    def forward(self, xyz1, xyz2, points1, points2):
+        """
+        Input:
+            xyz1: input points position data, [B, C, N]
+            xyz2: sampled input points position data, [B, C, S]
+            points1: input points data, [B, D, N]
+            points2: input points data, [B, D, S]
+        Return:
+            new_points: upsampled points data, [B, D', N]
+        """
+        xyz1 = xyz1.permute(0, 2, 1)
+        xyz2 = xyz2.permute(0, 2, 1)
+
+        points2 = points2.permute(0, 2, 1)
+        B, N, C = xyz1.shape
+        _, S, _ = xyz2.shape
+        # print("type S: ", type(S), S, isinstance(S, int), torch.is_tensor(S))
+        dists = square_distance(xyz1, xyz2)
+        dists, idx = dists.sort(dim=-1)
+        dists, idx = dists[:, :, :3], idx[:, :, :3]  # [B, N, 3]
+
+        dist_recip = 1.0 / (dists + 1e-8)
+        norm = torch.sum(dist_recip, dim=2, keepdim=True)
+        weight = dist_recip / norm
+        interpolated_points = torch.sum(index_points(points2, idx) * weight.view(B, N, 3, 1), dim=2)
+
+        if points1 is not None:
+            points1 = points1.permute(0, 2, 1)
+            new_points = torch.cat([points1, interpolated_points], dim=-1)
+        else:
+            new_points = interpolated_points
+
+        new_points = new_points.permute(0, 2, 1)
+        # for conv, bn in zip(self.mlp_convs, self.mlp_bns):
+        #     new_points = F.relu(bn(conv(new_points)))
+        new_points = F.relu(self.mlp_bns_0(self.mlp_convs_0(new_points)))
+        new_points = F.relu(self.mlp_bns_1(self.mlp_convs_1(new_points)))
+        return new_points
 
 
 class PointNetFeaturePropagation(nn.Module):
@@ -316,9 +646,9 @@ class PointNetFeaturePropagation(nn.Module):
         return new_points
 
 
-class get_model(nn.Module):
+class GetModel(nn.Module):
     def __init__(self, num_classes, normal_channel=False, num_categories=16):
-        super(get_model, self).__init__()
+        super(GetModel, self).__init__()
         self.num_categories = num_categories
         if normal_channel:
             additional_channel = 3
@@ -331,6 +661,52 @@ class get_model(nn.Module):
         self.fp3 = PointNetFeaturePropagation(in_channel=1536, mlp=[256, 256])
         self.fp2 = PointNetFeaturePropagation(in_channel=576, mlp=[256, 128])
         self.fp1 = PointNetFeaturePropagation(in_channel=134 + self.num_categories + additional_channel, mlp=[128, 128])
+        self.conv1 = nn.Conv1d(128, 128, 1)
+        self.bn1 = nn.BatchNorm1d(128)
+        self.drop1 = nn.Dropout(0.5)
+        self.conv2 = nn.Conv1d(128, num_classes, 1)
+
+    def forward(self, xyz, cls_label):
+        # Set Abstraction layers
+        B, C, N = xyz.shape
+        if self.normal_channel:
+            l0_points = xyz
+            l0_xyz = xyz[:, :3, :]
+        else:
+            l0_points = xyz
+            l0_xyz = xyz
+        l1_xyz, l1_points = self.sa1(l0_xyz, l0_points)
+        l2_xyz, l2_points = self.sa2(l1_xyz, l1_points)
+        l3_xyz, l3_points = self.sa3(l2_xyz, l2_points)
+        # Feature Propagation layers
+        l2_points = self.fp3(l2_xyz, l3_xyz, l2_points, l3_points)
+        l1_points = self.fp2(l1_xyz, l2_xyz, l1_points, l2_points)
+        cls_label_one_hot = cls_label.view(B, self.num_categories, 1).repeat(1, 1, N)
+        l0_points = self.fp1(l0_xyz, l1_xyz, torch.cat([cls_label_one_hot, l0_xyz, l0_points], 1), l1_points)
+        # FC layers
+        feat = F.relu(self.bn1(self.conv1(l0_points)))
+        x = self.drop1(feat)
+        x = self.conv2(x)
+        x = F.log_softmax(x, dim=1)
+        x = x.permute(0, 2, 1)
+        return x
+
+
+class GetModel1(nn.Module):
+    def __init__(self, num_classes, normal_channel=False, num_categories=16):
+        super(GetModel1, self).__init__()
+        self.num_categories = num_categories
+        if normal_channel:
+            additional_channel = 3
+        else:
+            additional_channel = 0
+        self.normal_channel = normal_channel
+        self.sa1 = PointNetSetAbstractionMsg1(1024, [0.1, 0.2, 0.4], [32, 64, 128], 3 + additional_channel, [[32, 32, 64], [64, 64, 128], [64, 96, 128]])
+        self.sa2 = PointNetSetAbstractionMsg2(256, [0.4, 0.8], [64, 128], 128+128+64, [[128, 128, 256], [128, 196, 256]])
+        self.sa3 = PointNetSetAbstraction1(npoint=256, radius=5.0, nsample=256, in_channel=512 + 3, mlp=[256, 512, 1024], group_all=True)
+        self.fp3 = PointNetFeaturePropagation0(in_channel=1536, mlp=[256, 256])
+        self.fp2 = PointNetFeaturePropagation1(in_channel=576, mlp=[256, 128])
+        self.fp1 = PointNetFeaturePropagation1(in_channel=134 + self.num_categories + additional_channel, mlp=[128, 128])
         self.conv1 = nn.Conv1d(128, 128, 1)
         self.bn1 = nn.BatchNorm1d(128)
         self.drop1 = nn.Dropout(0.5)
@@ -427,54 +803,125 @@ def show_pcl_data(data, label_cls=-1):
 
 
 if __name__ == "__main__":
-    net = get_model(2, normal_channel=False, num_categories=1)
-    checkpoint = torch.load("../log/part_seg/pointnet2_part_seg_msg_add_data/checkpoints/best_model.pth")
-    net.load_state_dict(checkpoint['model_state_dict'])
-    net = net.eval()
+    with torch.no_grad():
+        model_path = "../log/part_seg/pointnet2_part_seg_msg_dental_texture/checkpoints/best_model.pth"  # 训练得到的模型(1.5.0以上版本)
+        save_path = "../log/part_seg/pointnet2_part_seg_msg_dental_texture/checkpoints/best_model_1.3.0.pth"  # 解析成1.3.0版本
+        new_save_path = "../log/part_seg/pointnet2_part_seg_msg_dental_texture/checkpoints/best_model_1.3.0_new.pth"  # 转换为调整模型结构后的权重
+        pt_save_path = "./pointnet2_part_seg_msg_torchscript_model_.pt"  # torch script 模型
 
-    get_model_script = torch.jit.script(net)
-    print(get_model_script.graph)
-    print("save torch script model ...")
-    save_path = "./pointnet2_part_seg_msg_torchscript_model.pt"
-    get_model_script.save(save_path)
-    print("saved torch script model in {}".format(save_path))
+        # 一、首先在高版本下把模型进行转换, 保存的为模型文件为zip格式, 在1.3.0上识别不了, 转换后先保存
+        # >>>>>>>>>>>>>> 该代码在1.5.0以上版本执行
+        # checkpoint = torch.load(model_path)
+        # torch.save(checkpoint["model_state_dict"], save_path, _use_new_zipfile_serialization=False)
+        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    data_path = r"D:\Debug_dir\news_data\pcd_label_normal\bankou (1)_minCruv.pcd"
-    points, choices = process_data(data_path)
-    points = points.float()
-    points = points.transpose(2, 1)
-    cate = torch.tensor([[[1.]]])
+        # # >>>>>>>>>>>>>> 该代码在低版本运行 (1.3.0)
+        # # 二、先用字典保存原有模型参数, 然后再依据层的名称对新模型的参数进行赋值
+        # # ****** step1 模型参数保存 ******
+        # net_ref = GetModel(2, normal_channel=False, num_categories=1)
+        # state_dict = torch.load(save_path, map_location=torch.device('cpu'))
+        # net_ref.load_state_dict(state_dict)
+        # net_ref.eval()
+        #
+        # net_params = {}
+        # bn_mean_params = {}
+        # bn_var_params = {}
+        # for name, param in net_ref.named_parameters():
+        #     split_name = name.split(".")
+        #     n = len(split_name)
+        #     net1_name = split_name[0] + "."
+        #     for i in range(1, n-1):
+        #         net1_name += split_name[i] + "_"
+        #     net1_name = net1_name[:-1]
+        #     net1_name += "." + split_name[-1]
+        #
+        #     net_params[net1_name] = param
+        #
+        # for name, module in net_ref.named_modules():
+        #     if len(name) <= 3 or isinstance(module, torch.nn.ModuleList):
+        #         continue
+        #     split_name = name.split(".")
+        #     n = len(split_name)
+        #     net1_name = split_name[0] + "."
+        #     for i in range(1, n-1):
+        #         net1_name += split_name[i] + "_"
+        #
+        #     net1_name += split_name[-1]
+        #     if net1_name.find("bn") != -1:
+        #         bn_mean_params[net1_name] = module.running_mean
+        #         bn_var_params[net1_name] = module.running_var
+        #
+        # # ****** step2 替换参数 ******
+        # net = GetModel1(2, normal_channel=False, num_categories=1)
+        #
+        # for name, param in net.named_parameters():
+        #     # print("name: ", name, "param.shape: ", param.shape)
+        #     param.data = net_params[name]
+        # for name, module in net.named_modules():
+        #     if len(name) <= 3:
+        #         continue
+        #     # print("name: ", name, "module: ", module)
+        #     # BN层
+        #     if name.find("bn_blocks_") != -1 or name.find("mlp_bns_") != -1:
+        #         module.running_mean = bn_mean_params[name]
+        #         module.running_var = bn_var_params[name]
+        #
+        # net.eval()
+        # torch.save(net.state_dict(), new_save_path)
 
-    print("points: ", points.shape)
-    print("cate: ", cate.shape)
+        # # # 三、转为torch script模型
+        net2script = GetModel1(2, normal_channel=False, num_categories=1)
+        state_dict = torch.load(new_save_path)
+        net2script.load_state_dict(state_dict)
+        net2script.eval()
+        print("*********load net is Succeed!")
+        get_model_script = torch.jit.script(net2script)
+        # print(get_model_script.graph)
+        print("save torch script model ...")
+        get_model_script.save(pt_save_path)
+        print("saved torch script model in {}".format(pt_save_path))
+        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    # # inference by pytorch
-    # seg_pred = net(points, cate)
-    # cur_pred_val = seg_pred.cpu().data.numpy()
-    # cur_pred_val_logits = cur_pred_val
-    # result = np.argmax(cur_pred_val_logits, 2)
-    # res = choices[np.where(result == 1)[1]]
-    # print("result: ", res)
-    # # show result
-    # data = np.loadtxt(data_path, skiprows=10).astype(np.float32)
-    # label = [0] * len(data)
-    # for r in res:
-    #     label[r] = 1
-    # show_data = np.c_[data, np.asarray(label)]
-    # show_pcl_data(show_data)
+        # 四、测试
+        data_path = r"D:\Debug_dir\news_data\pcd_label_normal\bankou (1)_minCruv.pcd"
+        points, choices = process_data(data_path)
+        points = points.float()
+        points = points.transpose(2, 1)
+        cate = torch.tensor([[[1.]]])
 
-    # # inference by torch script
-    seg_pred = get_model_script(points, cate)
-    print("seg_pred: ", seg_pred, seg_pred.shape)
-    cur_pred_val = seg_pred.cpu().data.numpy()
-    result = np.argmax(cur_pred_val, 2)
-    res = choices[np.where(result == 1)[1]]
-    print("result: ", res)
-    # show result
-    data = np.loadtxt(data_path, skiprows=10).astype(np.float32)
-    label = [0] * len(data)
-    for r in res:
-        label[r] = 1
-    show_data = np.c_[data, np.asarray(label)]
-    show_pcl_data(show_data)
+        # print("points: ", points.shape)
+        # print("cate: ", cate.shape)
+
+        # # inference by pytorch
+        # seg_pred = net(points, cate)
+        # cur_pred_val = seg_pred.cpu().data.numpy()
+        # cur_pred_val_logits = cur_pred_val
+        # result = np.argmax(cur_pred_val_logits, 2)
+        # res = choices[np.where(result == 1)[1]]
+        # print("result: ", res)
+        # # show result
+        # data = np.loadtxt(data_path, skiprows=10).astype(np.float32)
+        # label = [0] * len(data)
+        # for r in res:
+        #     label[r] = 1
+        # show_data = np.c_[data, np.asarray(label)]
+        # show_pcl_data(show_data)
+
+        # # inference by torch script
+        script_model = torch.jit.load(pt_save_path)
+        seg_pred = script_model(points, cate)
+        print("seg_pred: ", seg_pred, seg_pred.shape)
+        cur_pred_val = seg_pred.cpu().data.numpy()
+        result = np.argmax(cur_pred_val, 2)
+        res = choices[np.where(result == 1)[1]]
+        print("result: ", res, len(res))
+
+        # 五、可视化
+        data = np.loadtxt(data_path, skiprows=10).astype(np.float32)
+        label = [0] * len(data)
+        for r in res:
+            label[r] = 1
+        show_data = np.c_[data, np.asarray(label)]
+        show_pcl_data(show_data)
+
 

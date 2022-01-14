@@ -132,7 +132,6 @@ def query_ball_point(radius: float, nsample: int, xyz, new_xyz):
     group_idx = torch.where(group_idx == N, group_first, group_idx)
     return group_idx
 
-
 def index_points(points, idx):
     """
 
@@ -593,9 +592,9 @@ class Net(nn.Module):
         return select  # idx
 
 
-class TestNet(nn.Module):
+class GetModel(nn.Module):
     def __init__(self, num_classes=2, normal_channel=False, num_categories=1):
-        super(TestNet, self).__init__()
+        super(GetModel, self).__init__()
         self.num_categories = num_categories
         self.sa1 = PointNetSetAbstractionMsg1(1024, [0.1, 0.2, 0.4], [32, 64, 128], 3, [[32, 32, 64], [64, 64, 128], [64, 96, 128]])
         self.sa2 = PointNetSetAbstractionMsg2(256, [0.4, 0.8], [64, 128], 128 + 128 + 64, [[128, 128, 256], [128, 196, 256]])
@@ -1111,8 +1110,8 @@ if __name__ == "__main__":
     # torch.onnx.register_custom_op_symbolic("my_ops::dist", my_dist, 9)
     torch.onnx.register_custom_op_symbolic("my_ops::propagatedata", my_propagatedata, 9)
 
-    net = TestNet()
-    state_dict = torch.load("../log/part_seg/pointnet2_part_seg_msg_add_data/checkpoints/best_model_1.3.0_new.pth")
+    net = GetModel()
+    state_dict = torch.load("../log/part_seg/pointnet2_part_seg_msg_gumline/checkpoints/best_model_new.pth")
     net.load_state_dict(state_dict)
     net = net.eval()
 

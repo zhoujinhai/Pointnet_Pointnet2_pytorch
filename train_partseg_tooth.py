@@ -47,7 +47,7 @@ def to_categorical(y, num_classes):
 
 def parse_args():
     parser = argparse.ArgumentParser('Model')
-    parser.add_argument('--model', type=str, default='pointnet2_part_seg_msg', help='model name')
+    parser.add_argument('--model', type=str, default='pointnet2_part_seg_msg_cv', help='model name')
     parser.add_argument('--batch_size', type=int, default=2, help='batch Size during training')
     parser.add_argument('--epoch', default=2000, type=int, help='epoch to run')
     parser.add_argument('--learning_rate', default=0.001, type=float, help='initial learning rate')
@@ -55,7 +55,7 @@ def parse_args():
     parser.add_argument('--optimizer', type=str, default='Adam', help='Adam or SGD')
     parser.add_argument('--log_dir', type=str, default=None, help='log path')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='weight decay')
-    parser.add_argument('--npoint', type=int, default=16384, help='point Number')
+    parser.add_argument('--npoint', type=int, default=8192, help='point Number')
     parser.add_argument('--normal', action='store_true', default=False, help='use normals')
     parser.add_argument('--step_size', type=int, default=20, help='decay step for lr decay')
     parser.add_argument('--lr_decay', type=float, default=0.5, help='decay rate for lr decay')
@@ -99,7 +99,7 @@ def main(args):
     log_string('PARAMETER ...')
     log_string(args)
 
-    root = "/home/heygears/jinhai_zhou/data/pcd_with_label_normal"  # 'data/shapenetcore_partanno_segmentation_benchmark_v0_normal/'
+    root = "/home/heygears/jinhai_zhou/data/pcd_gumline"  # 'data/shapenetcore_partanno_segmentation_benchmark_v0_normal/'
 
     TRAIN_DATASET = PartNormalDataset(root=root, npoints=args.npoint, split='train_val', normal_channel=args.normal)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATASET, batch_size=args.batch_size, shuffle=True, num_workers=10, drop_last=True, collate_fn=my_collate_fn)
@@ -308,7 +308,7 @@ def main(args):
                 'model_state_dict': classifier.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
             }
-            torch.save(state, savepath)
+            torch.save(state, savepath, _use_new_zipfile_serialization=False)
             log_string('Saving model....')
 
         if test_metrics['instance_avg_iou'] >= best_instance_avg_iou:
@@ -324,7 +324,7 @@ def main(args):
                 'model_state_dict': classifier.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
             }
-            torch.save(state, savepath)
+            torch.save(state, savepath, _use_new_zipfile_serialization=False)
             log_string('Saving model....')
 
         if epoch == args.epoch - 1:
@@ -340,7 +340,7 @@ def main(args):
                 'model_state_dict': classifier.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
             }
-            torch.save(state, savepath)
+            torch.save(state, savepath, _use_new_zipfile_serialization=False)
             log_string('Saving model....')
 
         if test_metrics['accuracy'] > best_acc:

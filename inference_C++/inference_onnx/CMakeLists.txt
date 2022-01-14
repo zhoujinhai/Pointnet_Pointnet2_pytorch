@@ -9,7 +9,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 
 # Torch
-set(TORCH_ROOT "E:/code/LibTorch/libtorch")  # "E:/code/LibTorch/libtorch_debug")   
+set(TORCH_ROOT "/home/heygears/jinhai_zhou/package/libtorch")  # "E:/code/LibTorch/libtorch_debug")   
 include_directories(${TORCH_ROOT}/include)
 link_directories(${TORCH_ROOT}/lib/)
 
@@ -23,7 +23,7 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_14)
 # Link against Torch
 target_link_libraries(${PROJECT_NAME} 
 	c10
-	torch_cpu
+	torch
 )
 
 

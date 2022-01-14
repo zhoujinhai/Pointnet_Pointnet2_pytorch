@@ -804,119 +804,62 @@ def show_pcl_data(data, label_cls=-1):
 
 if __name__ == "__main__":
     with torch.no_grad():
-        model_path = "../log/part_seg/pointnet2_part_seg_msg_add_data/checkpoints/best_model.pth"   # 训练得到的模型(1.5.0以上版本)
-        save_path = "../log/part_seg/pointnet2_part_seg_msg_add_data/checkpoints/best_model_1.3.0.pth"  # 解析成1.3.0版本
-        new_save_path = "../log/part_seg/pointnet2_part_seg_msg_add_data/checkpoints/best_model_1.3.0_new.pth"  # 转换为调整模型结构后的权重
-        pt_save_path = "./pointnet2_part_seg_msg_torchscript_model_.pt"  # torch script 模型
+        model_path = "../log/part_seg/pointnet2_part_seg_msg_gumline/checkpoints/best_model.pth"  # 训练得到的模型(1.5.0以上版本)
+        new_save_path = "../log/part_seg/pointnet2_part_seg_msg_gumline/checkpoints/best_model_new.pth"  # 转换为调整模型结构后的权重
 
-        # 一、首先在高版本下把模型进行转换, 保存的为模型文件为zip格式, 在1.3.0上识别不了, 转换后先保存
-        # >>>>>>>>>>>>>> 该代码在1.5.0以上版本执行
-        # checkpoint = torch.load(model_path)
-        # torch.save(checkpoint["model_state_dict"], save_path, _use_new_zipfile_serialization=False)
-        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-        # # >>>>>>>>>>>>>> 该代码在低版本运行 (1.3.0)
-        # # 二、先用字典保存原有模型参数, 然后再依据层的名称对新模型的参数进行赋值
+        # # 先用字典保存原有模型参数, 然后再依据层的名称对新模型的参数进行赋值
         # # ****** step1 模型参数保存 ******
-        # net_ref = GetModel(2, normal_channel=False, num_categories=1)
-        # state_dict = torch.load(save_path, map_location=torch.device('cpu'))
-        # net_ref.load_state_dict(state_dict)
-        # net_ref.eval()
-        #
-        # net_params = {}
-        # bn_mean_params = {}
-        # bn_var_params = {}
-        # for name, param in net_ref.named_parameters():
-        #     split_name = name.split(".")
-        #     n = len(split_name)
-        #     net1_name = split_name[0] + "."
-        #     for i in range(1, n-1):
-        #         net1_name += split_name[i] + "_"
-        #     net1_name = net1_name[:-1]
-        #     net1_name += "." + split_name[-1]
-        #
-        #     net_params[net1_name] = param
-        #
-        # for name, module in net_ref.named_modules():
-        #     if len(name) <= 3 or isinstance(module, torch.nn.ModuleList):
-        #         continue
-        #     split_name = name.split(".")
-        #     n = len(split_name)
-        #     net1_name = split_name[0] + "."
-        #     for i in range(1, n-1):
-        #         net1_name += split_name[i] + "_"
-        #
-        #     net1_name += split_name[-1]
-        #     if net1_name.find("bn") != -1:
-        #         bn_mean_params[net1_name] = module.running_mean
-        #         bn_var_params[net1_name] = module.running_var
-        #
-        # # ****** step2 替换参数 ******
-        # net = GetModel1(2, normal_channel=False, num_categories=1)
-        #
-        # for name, param in net.named_parameters():
-        #     # print("name: ", name, "param.shape: ", param.shape)
-        #     param.data = net_params[name]
-        # for name, module in net.named_modules():
-        #     if len(name) <= 3:
-        #         continue
-        #     # print("name: ", name, "module: ", module)
-        #     # BN层
-        #     if name.find("bn_blocks_") != -1 or name.find("mlp_bns_") != -1:
-        #         module.running_mean = bn_mean_params[name]
-        #         module.running_var = bn_var_params[name]
-        #
-        # net.eval()
-        # torch.save(net.state_dict(), new_save_path)
-        # # # # 三、转为torch script模型
-        # print("*********load net is Succeed!")
-        # get_model_script = torch.jit.script(net)
-        # # print(get_model_script.graph)
-        # print("save torch script model ...")
-        # get_model_script.save(pt_save_path)
-        # print("saved torch script model in {}".format(pt_save_path))
-        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        net_ref = GetModel(2, normal_channel=False, num_categories=1)
+        state_dict = torch.load(model_path, map_location=torch.device('cpu'))
+        net_ref.load_state_dict(state_dict["model_state_dict"])
+        net_ref.eval()
 
-        # 四、测试
-        data_path = r"D:\Debug_dir\news_data\pcd_label_normal\bankou (1)_minCruv.pcd"
-        points, choices = process_data(data_path)
-        points = points.float()
-        points = points.transpose(2, 1)
-        cate = torch.tensor([[[1.]]])
+        net_params = {}
+        bn_mean_params = {}
+        bn_var_params = {}
+        for name, param in net_ref.named_parameters():
+            split_name = name.split(".")
+            n = len(split_name)
+            net1_name = split_name[0] + "."
+            for i in range(1, n-1):
+                net1_name += split_name[i] + "_"
+            net1_name = net1_name[:-1]
+            net1_name += "." + split_name[-1]
 
-        # print("points: ", points.shape)
-        # print("cate: ", cate.shape)
+            net_params[net1_name] = param
 
-        # # inference by pytorch
-        # seg_pred = net(points, cate)
-        # cur_pred_val = seg_pred.cpu().data.numpy()
-        # cur_pred_val_logits = cur_pred_val
-        # result = np.argmax(cur_pred_val_logits, 2)
-        # res = choices[np.where(result == 1)[1]]
-        # print("result: ", res)
-        # # show result
-        # data = np.loadtxt(data_path, skiprows=10).astype(np.float32)
-        # label = [0] * len(data)
-        # for r in res:
-        #     label[r] = 1
-        # show_data = np.c_[data, np.asarray(label)]
-        # show_pcl_data(show_data)
+        for name, module in net_ref.named_modules():
+            if len(name) <= 3 or isinstance(module, torch.nn.ModuleList):
+                continue
+            split_name = name.split(".")
+            n = len(split_name)
+            net1_name = split_name[0] + "."
+            for i in range(1, n-1):
+                net1_name += split_name[i] + "_"
 
-        # # inference by torch script
-        script_model = torch.jit.load(pt_save_path)
-        seg_pred = script_model(points, cate)
-        print("seg_pred: ", seg_pred, seg_pred.shape)
-        cur_pred_val = seg_pred.cpu().data.numpy()
-        result = np.argmax(cur_pred_val, 2)
-        res = choices[np.where(result == 1)[1]]
-        print("result: ", res, len(res))
+            net1_name += split_name[-1]
+            if net1_name.find("bn") != -1:
+                bn_mean_params[net1_name] = module.running_mean
+                bn_var_params[net1_name] = module.running_var
 
-        # 五、可视化
-        data = np.loadtxt(data_path, skiprows=10).astype(np.float32)
-        label = [0] * len(data)
-        for r in res:
-            label[r] = 1
-        show_data = np.c_[data, np.asarray(label)]
-        show_pcl_data(show_data)
+        # ****** step2 替换参数 ******
+        net = GetModel1(2, normal_channel=False, num_categories=1)
+
+        for name, param in net.named_parameters():
+            # print("name: ", name, "param.shape: ", param.shape)
+            param.data = net_params[name]
+        for name, module in net.named_modules():
+            if len(name) <= 3:
+                continue
+            # print("name: ", name, "module: ", module)
+            # BN层
+            if name.find("bn_blocks_") != -1 or name.find("mlp_bns_") != -1:
+                module.running_mean = bn_mean_params[name]
+                module.running_var = bn_var_params[name]
+
+        net.eval()
+        torch.save(net.state_dict(), new_save_path)
+
+
 
 

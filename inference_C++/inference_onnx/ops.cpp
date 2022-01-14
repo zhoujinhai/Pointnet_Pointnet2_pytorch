@@ -217,9 +217,12 @@ torch::Tensor query_ball_point(torch::Tensor radius, long long nsample, torch::T
     //std::cout << "temp_sort: " << temp_sort << std::endl;
     group_idx = temp_sort.index({ "...", torch::indexing::Slice(0, nsample) }); 
 
+    /* deal group_idx may be N due to group_first is N
     torch::Tensor dist_idx = std::get<1>(torch::sort(sqrdists, 2));
     torch::Tensor temp_first = group_idx.index({ "...", 0 });
     temp_first = torch::_s_where(temp_first == N, dist_idx.index({ "...", 0 }), temp_first);
+
+    torch::Tensor group_first = temp_first.view({ B, S, 1 }).repeat({ 1, 1, nsample });*/
     
     //std::cout << "group_idx: " << group_idx << std::endl;
     torch::Tensor group_first = group_idx.index({ "...", 0 }).view({ B, S, 1 }).repeat({ 1, 1, nsample });

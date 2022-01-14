@@ -16,12 +16,12 @@ def pc_normalize(pc):
 
 
 class PartNormalDataset(Dataset):
-    def __init__(self, root='/home/heygears/jinhai_zhou/data/pcd_with_label', npoints=8192, split='train', normal_channel=False, shuffle=True):
+    def __init__(self, root='/home/heygears/jinhai_zhou/data/pcd_dental_texture', npoints=8192, split='train', normal_channel=False, shuffle=True):
         self.npoints = npoints
         self.root = root
         self.normal_channel = normal_channel
 
-        pcd_files = glob.glob(os.path.join(self.root, "*.pcd"))
+        pcd_files = glob.glob(os.path.join(self.root, "*.pcd"))   # pcd data format: x y z label nId / x y z ...(other feature) label nId
         if split.find("test") == -1:
             label_weights = np.zeros(2)
             for pcd_file in pcd_files:
@@ -89,7 +89,7 @@ class PartNormalDataset(Dataset):
 
 
 class SemSegDataset(Dataset):
-    def __init__(self, root='/home/heygears/jinhai_zhou/data/pcd_with_label', npoints=8192, split='train', normal_channel=False, shuffle=True):
+    def __init__(self, root='/home/heygears/jinhai_zhou/data/pcd_dental_texture', npoints=8192, split='train', normal_channel=False, shuffle=True):
         self.npoints = npoints
         self.root = root
         self.normal_channel = normal_channel
@@ -206,7 +206,7 @@ def my_collate_fn_sem(batch_data):
 
 
 if __name__ == "__main__":
-    dataset = PartNormalDataset(root=r"D:\Debug_dir\pcd_with_label_normal", split='test', normal_channel=True)   # /home/heygears/jinhai_zhou/data/pcd_with_label_normal
+    dataset = PartNormalDataset(root=r"\\10.99.11.210\MeshCNN\pointCloudData\GumLine\pcd", split='test', normal_channel=False)   # /home/heygears/jinhai_zhou/data/pcd_with_label_normal
     print(len(dataset))
     # points, label, target = dataset[8]
     # print(points[0], type(points[0]), type(points[0][0]), label, type(label), target, type(target))

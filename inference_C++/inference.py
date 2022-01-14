@@ -126,7 +126,7 @@ def show_pcl_data(data, label_cls=-1):
 
 
 if __name__ == '__main__':
-    model_path = "../log/part_seg/pointnet2_part_seg_msg_add_data/checkpoints/best_model.pth"  #
+    model_path = "../log/part_seg/pointnet2_part_seg_msg_dental_texture/checkpoints/best_model.pth"  #
     # data_path = r"D:\Debug_dir\news_data\pcd_label_normal\bankou (1)_minCruv.pcd"
     data_path = r"D:\Debug_dir\inputs.pts"
     inference = InferenceClass(model_path, use_normal=False, use_gpu=True)

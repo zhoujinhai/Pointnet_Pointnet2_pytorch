@@ -1098,7 +1098,7 @@ if __name__ == "__main__":
     torch.onnx.register_custom_op_symbolic("my_ops::propagatedata", my_propagatedata, 9)
 
     net = TestNet()
-    state_dict = torch.load("../log/part_seg/pointnet2_part_seg_msg_add_data/checkpoints/best_model_1.3.0_new.pth")
+    state_dict = torch.load("../log/part_seg/pointnet2_part_seg_msg_dental_texture/checkpoints/best_model_1.3.0_new.pth")
     net.load_state_dict(state_dict)
     net = net.eval()
 
