@@ -5,7 +5,7 @@
 - 训练模型
 ```bash
 python train_partset_tooth.py --model pointnet2_part_seg_msg --log_dir pointnet2_part_seg_msg_gumline
-# python train_semseg_tooth.py --model pointnet2_sem_seg_msg --log_dir pointnet2_seg_msg_tooth
+# python train_semseg_tooth.py --model pointnet2_sem_seg --log_dir pointnet2_seg_msg_tooth
 ```
 - 模型保存至`log/part_seg/pointnet2_part_seg_msg_gumline`
 
