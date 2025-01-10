@@ -9,6 +9,12 @@ python train_partset_tooth.py --model pointnet2_part_seg_msg --log_dir pointnet2
 ```
 - 模型保存至`log/part_seg/pointnet2_part_seg_msg_gumline`
 
+- 测试模型
+  ```python
+  python inference_partseg.py
+  python inference_seg_tooth.py
+  ```
+
 #### 2. 模型参数调整
 运行`netChangeParams.py`
 ```bash
