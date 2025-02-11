@@ -9,7 +9,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 
 # Torch
-set(TORCH_ROOT "/home/heygears/jinhai_zhou/package/libtorch")  # "E:/code/LibTorch/libtorch_debug")   
+set(TORCH_ROOT "/home/jinhai_zhou/package/libtorch")  # "E:/code/LibTorch/libtorch_debug")   
 include_directories(${TORCH_ROOT}/include)
 link_directories(${TORCH_ROOT}/lib/)
 
