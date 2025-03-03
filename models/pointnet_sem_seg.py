@@ -45,6 +45,33 @@ class get_loss(torch.nn.Module):
         return total_loss
 
 
+class get_focal_loss(nn.Module):
+    def __init__(self, alpha=1, gamma=2, reduction='mean'):
+        super(get_focal_loss, self).__init__()
+        print("**********Use focal loss!**********")
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+
+    def forward(self, pred, target, trans_feat, weight=None):
+        # pred should be log probabilities after softmax
+        ce_loss = F.nll_loss(pred, target, reduction='none', weight=weight)
+        
+        # Get the prediction probabilities
+        pred_prob = torch.exp(-ce_loss)
+        
+        # Apply focal weight
+        focal_loss = self.alpha * (1 - pred_prob) ** self.gamma * ce_loss 
+        
+        # Reduce the focal loss
+        if self.reduction == 'mean':
+            focal_loss = focal_loss.mean()
+        elif self.reduction == 'sum':
+            focal_loss = focal_loss.sum()
+        
+        return focal_loss
+        
+
 if __name__ == '__main__':
     model = get_model(13)
     xyz = torch.rand(12, 3, 2048)
