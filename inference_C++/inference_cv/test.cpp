@@ -477,7 +477,7 @@ void query_ball_point(const float radius, const int nsample, const cv::Mat& xyz,
             printMat(Flanndists);
             printMat(indices);
             
-            // ĞèÒªÅĞ¶Ï¸öÊıÊÇ·ñÂú×ãÒªÇóµÄ ²»×ãÔòÌî³äµÚÒ»¸ö Îª¿ÕÔòÌî³ä×î½üµÄkdtree.knnSearch(k=1)
+            // éœ€è¦åˆ¤æ–­ä¸ªæ•°æ˜¯å¦æ»¡è¶³è¦æ±‚çš„ ä¸è¶³åˆ™å¡«å……ç¬¬ä¸€ä¸ª ä¸ºç©ºåˆ™å¡«å……æœ€è¿‘çš„kdtree.knnSearch(k=1)
             std::vector<float> selectIds;
             float refDist = Flanndists.at<float>(0, 0);
             for (int r = 0; r < slicexyz.rows; ++r) {
@@ -772,7 +772,7 @@ bool readFile(std::string dataPath, std::vector<std::vector<float> >& points, bo
 
 bool PreProcess(std::vector<std::vector<float> >& points, std::vector<int>& ids)
 {
-    // ¹éÒ»»¯
+    // å½’ä¸€åŒ–
     int n = points.size();
     if (n < 1) {
         return false;
@@ -809,7 +809,7 @@ bool PreProcess(std::vector<std::vector<float> >& points, std::vector<int>& ids)
         ids.push_back(i);
     }
 
-    // Ëæ»ú´òÂÒ
+    // éšæœºæ‰“ä¹±
     std::random_shuffle(ids.begin(), ids.end());
     std::vector<std::vector<float> > newPoints;
     for (int i = 0; i < n; ++i) {
@@ -1345,7 +1345,7 @@ public:
         cv::Mat blob2 = blobs[1];
         n_cls = blob1.at<int>(0);
         int C = blob2.at<int>(0);
-        channel = n_cls + 2 * C;
+        channel = n_cls + 3 + C;
     }
 
     static cv::Ptr<cv::dnn::Layer> create(cv::dnn::LayerParams& params)
@@ -1667,7 +1667,7 @@ cv::Mat testFlannRadiusSearch(const float radius, const int nsample, const cv::M
             cv::Mat Flanndists = cv::Mat::zeros(1, slicexyz.rows, slicexyz.type());
             kdtree.radiusSearch(sliceNewxyz.rowRange(sId, sId + 1), indices, Flanndists, radius * radius, slicexyz.rows, params);
         
-            // ĞèÒªÅĞ¶Ï¸öÊıÊÇ·ñÂú×ãÒªÇóµÄ ²»×ãÌî³äµÚÒ»¸ö Îª¿ÕÔòÌî³ä×î½üµÄkdtree.knnSearch(k=1)
+            // éœ€è¦åˆ¤æ–­ä¸ªæ•°æ˜¯å¦æ»¡è¶³è¦æ±‚çš„ ä¸è¶³å¡«å……ç¬¬ä¸€ä¸ª ä¸ºç©ºåˆ™å¡«å……æœ€è¿‘çš„kdtree.knnSearch(k=1)
             std::vector<float> selectIds;
             for (int r = 0; r < slicexyz.rows; ++r) {
                 if (Flanndists.at<float>(0, r) <= 0 || Flanndists.at<float>(0, r) > refRadius) {
